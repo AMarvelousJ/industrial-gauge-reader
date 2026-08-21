@@ -1,0 +1,887 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-08-21",
+  "source_markdown": "D:/tiaozhanbei/yolo/all_set/仪表盘读数标注.md",
+  "source_root": "D:/tiaozhanbei/yolo/all_set",
+  "source_mutated": false,
+  "summary": {
+    "markdown_data_rows": 26,
+    "unique_resolved_images": 20,
+    "original_existing_rows": 20,
+    "deterministically_resolved_rows": 26,
+    "clean_as_written_unique_truths_after_path_resolution": 18,
+    "audited_unique_truths_after_adjudication": 20,
+    "rejected_conflicting_rows": 6,
+    "corrected_semantic_rows": 2,
+    "target_accuracy": 0.8,
+    "audited_protocol_required_correct": 16,
+    "audited_protocol_denominator": 20,
+    "strict_protocol_required_correct": 15,
+    "strict_protocol_denominator": 18
+  },
+  "unit_conversions": {
+    "MPa_to_bar": 10,
+    "bar_to_psi": 14.5037738,
+    "notes": "Compare only compatible physical dimensions. Convert prediction to the sample canonical unit before applying absolute tolerance."
+  },
+  "evaluation_policy": {
+    "primary_protocol": "audited_unique_20",
+    "deduplication_key": "sha256",
+    "correctness": "abs(convert(prediction, canonical_unit) - canonical_value) <= absolute_tolerance",
+    "no_output": "incorrect",
+    "detector_miss": "incorrect",
+    "wrong_dimension_or_unit": "incorrect",
+    "report_coverage_separately": true,
+    "reader_only_roi": "YOLO ground-truth ROI may be used only when explicitly reporting reader-only accuracy",
+    "end_to_end_roi": "Use predicted detection and count detector failure as incorrect; never fall back to GT ROI",
+    "double_scale": "Either declared equivalent unit is acceptable after conversion"
+  },
+  "protocols": {
+    "audited_unique_20": {
+      "sample_ids": [
+        "RG-001", "RG-002", "RG-003", "RG-004", "RG-005",
+        "RG-006", "RG-007", "RG-008", "RG-009", "RG-010",
+        "RG-011", "RG-012", "RG-013", "RG-014", "RG-015",
+        "RG-016", "RG-017", "RG-018", "RG-019", "RG-020"
+      ],
+      "target_accuracy": 0.8,
+      "required_correct": 16
+    },
+    "strict_18": {
+      "sample_ids": [
+        "RG-001", "RG-003", "RG-004", "RG-005", "RG-006",
+        "RG-007", "RG-008", "RG-009", "RG-010", "RG-011",
+        "RG-012", "RG-013", "RG-014", "RG-016", "RG-017",
+        "RG-018", "RG-019", "RG-020"
+      ],
+      "excluded_sample_ids": ["RG-002", "RG-015"],
+      "target_accuracy": 0.8,
+      "required_correct": 15
+    }
+  },
+  "path_repairs": [
+    {
+      "md_rows": [
+        17,
+        19
+      ],
+      "original": "M01/images/M01_P01_W_00019.jpg",
+      "resolved": "M01/images/M01_P01_W_0019.jpg",
+      "rule": "remove_one_extra_leading_zero",
+      "deterministic": true
+    },
+    {
+      "md_rows": [
+        18
+      ],
+      "original": "M01/images/M01_P01_W_00022.jpg",
+      "resolved": "M01/images/M01_P01_W_0022.jpg",
+      "rule": "remove_one_extra_leading_zero",
+      "deterministic": true
+    },
+    {
+      "md_rows": [
+        20
+      ],
+      "original": "M03/images/M03_P04_D_00058.jpg",
+      "resolved": "M03/images/M03_P04_D_0058.jpg",
+      "rule": "remove_one_extra_leading_zero",
+      "deterministic": true
+    },
+    {
+      "md_rows": [
+        21
+      ],
+      "original": "M03/images/M03_P04_D_00060.jpg",
+      "resolved": "M03/images/M03_P04_D_0060.jpg",
+      "rule": "remove_one_extra_leading_zero",
+      "deterministic": true
+    },
+    {
+      "md_rows": [
+        22
+      ],
+      "original": "M03/images/M03_P04_D_00063.jpg",
+      "resolved": "M03/images/M03_P04_D_0063.jpg",
+      "rule": "remove_one_extra_leading_zero",
+      "deterministic": true
+    }
+  ],
+  "conflict_groups": [
+    {
+      "resolved_path": "M01/images/M01_P01_W_0003.jpg",
+      "md_rows": [
+        10,
+        13,
+        14,
+        15,
+        16
+      ],
+      "provided_readings": [
+        "29.9 ℃",
+        "0.098 bar",
+        "6.2 bar",
+        "1.35 bar",
+        "1.22 bar"
+      ],
+      "accepted_row": 10,
+      "rejected_rows": [
+        13,
+        14,
+        15,
+        16
+      ],
+      "reason": "Image is a 0-60 degree Celsius thermometer; only 29.9 C matches its dimension and pointer."
+    },
+    {
+      "resolved_path": "M01/images/M01_P01_W_0019.jpg",
+      "md_rows": [
+        17,
+        19
+      ],
+      "provided_readings": [
+        "188 bar",
+        "124 ℃"
+      ],
+      "accepted_row": 17,
+      "rejected_rows": [
+        19
+      ],
+      "reason": "Image is a 0-250 bar pressure gauge; 188 bar matches and 124 C has the wrong dimension."
+    },
+    {
+      "resolved_path": "M05/images/M05_P05_W_0067.jpg",
+      "md_rows": [
+        24,
+        25
+      ],
+      "provided_readings": [
+        "21 Pa",
+        "42.5 Pa"
+      ],
+      "accepted_row": 25,
+      "rejected_rows": [
+        24
+      ],
+      "reason": "The red reading pointer is between 40 and 50 Pa. Neighboring series images confirm the red pointer convention; no 21 Pa pointer is visible."
+    }
+  ],
+  "rows": [
+    {
+      "row": 1,
+      "md_line": 7,
+      "original_path": "M01/images/M01_P01_W_0001.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0001.jpg",
+      "provided_reading": "0 bar",
+      "status": "accepted",
+      "sample_id": "RG-001",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 2,
+      "md_line": 8,
+      "original_path": "M01/images/M01_P01_W_0101.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0101.jpg",
+      "provided_reading": "0.41 bar",
+      "status": "accepted_after_unit_correction",
+      "sample_id": "RG-002",
+      "contributes_to_unique_eval": true,
+      "correction": "Printed unit is MPa; canonical truth is 0.41 MPa."
+    },
+    {
+      "row": 3,
+      "md_line": 9,
+      "original_path": "M01/images/M01_P01_W_0132.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0132.jpg",
+      "provided_reading": "33.5 ℃",
+      "status": "accepted",
+      "sample_id": "RG-003",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 4,
+      "md_line": 10,
+      "original_path": "M01/images/M01_P01_W_0154.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0154.jpg",
+      "provided_reading": "2.45 bar",
+      "status": "accepted",
+      "sample_id": "RG-004",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 5,
+      "md_line": 11,
+      "original_path": "M01/images/M01_P01_W_0162.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0162.jpg",
+      "provided_reading": "1.25 bar",
+      "status": "accepted",
+      "sample_id": "RG-005",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 6,
+      "md_line": 12,
+      "original_path": "M01/images/M01_P01_W_0168.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0168.jpg",
+      "provided_reading": "0.097 bar",
+      "status": "accepted_with_division_tolerance",
+      "sample_id": "RG-006",
+      "contributes_to_unique_eval": true,
+      "note": "Do not require three-decimal precision from the visible scale."
+    },
+    {
+      "row": 7,
+      "md_line": 13,
+      "original_path": "M01/images/M01_P01_W_0173.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0173.jpg",
+      "provided_reading": "293 ℃",
+      "status": "accepted",
+      "sample_id": "RG-007",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 8,
+      "md_line": 14,
+      "original_path": "M01/images/M01_P01_W_0179.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0179.jpg",
+      "provided_reading": "314 ℃",
+      "status": "accepted",
+      "sample_id": "RG-008",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 9,
+      "md_line": 15,
+      "original_path": "M01/images/M01_P01_W_0194.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0194.jpg",
+      "provided_reading": "1.75 kg/cm²",
+      "status": "accepted",
+      "sample_id": "RG-009",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 10,
+      "md_line": 16,
+      "original_path": "M01/images/M01_P01_W_0003.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0003.jpg",
+      "provided_reading": "29.9 ℃",
+      "status": "accepted_conflict_representative",
+      "sample_id": "RG-010",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 11,
+      "md_line": 17,
+      "original_path": "M01/images/M01_P01_W_0005.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0005.jpg",
+      "provided_reading": "1.3 bar",
+      "status": "accepted",
+      "sample_id": "RG-011",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 12,
+      "md_line": 18,
+      "original_path": "M01/images/M01_P01_W_0006.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0006.jpg",
+      "provided_reading": "33.3 ℃",
+      "status": "accepted",
+      "sample_id": "RG-012",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 13,
+      "md_line": 19,
+      "original_path": "M01/images/M01_P01_W_0003.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0003.jpg",
+      "provided_reading": "0.098 bar",
+      "status": "rejected_conflicting_duplicate",
+      "sample_id": "RG-010",
+      "contributes_to_unique_eval": false,
+      "reason": "Wrong physical dimension for the Celsius thermometer."
+    },
+    {
+      "row": 14,
+      "md_line": 20,
+      "original_path": "M01/images/M01_P01_W_0003.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0003.jpg",
+      "provided_reading": "6.2 bar",
+      "status": "rejected_conflicting_duplicate",
+      "sample_id": "RG-010",
+      "contributes_to_unique_eval": false,
+      "reason": "Wrong physical dimension and scale."
+    },
+    {
+      "row": 15,
+      "md_line": 21,
+      "original_path": "M01/images/M01_P01_W_0003.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0003.jpg",
+      "provided_reading": "1.35 bar",
+      "status": "rejected_conflicting_duplicate",
+      "sample_id": "RG-010",
+      "contributes_to_unique_eval": false,
+      "reason": "Wrong physical dimension."
+    },
+    {
+      "row": 16,
+      "md_line": 22,
+      "original_path": "M01/images/M01_P01_W_0003.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0003.jpg",
+      "provided_reading": "1.22 bar",
+      "status": "rejected_conflicting_duplicate",
+      "sample_id": "RG-010",
+      "contributes_to_unique_eval": false,
+      "reason": "Wrong physical dimension."
+    },
+    {
+      "row": 17,
+      "md_line": 23,
+      "original_path": "M01/images/M01_P01_W_00019.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0019.jpg",
+      "provided_reading": "188 bar",
+      "status": "accepted_conflict_representative_after_path_repair",
+      "sample_id": "RG-013",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 18,
+      "md_line": 24,
+      "original_path": "M01/images/M01_P01_W_00022.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0022.jpg",
+      "provided_reading": "43 ℃",
+      "status": "accepted_after_path_repair",
+      "sample_id": "RG-014",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 19,
+      "md_line": 25,
+      "original_path": "M01/images/M01_P01_W_00019.jpg",
+      "resolved_path": "M01/images/M01_P01_W_0019.jpg",
+      "provided_reading": "124 ℃",
+      "status": "rejected_conflicting_duplicate",
+      "sample_id": "RG-013",
+      "contributes_to_unique_eval": false,
+      "reason": "Resolved image is a bar pressure gauge, not a thermometer."
+    },
+    {
+      "row": 20,
+      "md_line": 26,
+      "original_path": "M03/images/M03_P04_D_00058.jpg",
+      "resolved_path": "M03/images/M03_P04_D_0058.jpg",
+      "provided_reading": "158 PSI/0.98 MPa",
+      "status": "accepted_primary_scale_only_after_path_repair",
+      "sample_id": "RG-015",
+      "contributes_to_unique_eval": true,
+      "correction": "Retain 158 psi. Reject 0.98 MPa; 158 psi converts to about 1.09 MPa."
+    },
+    {
+      "row": 21,
+      "md_line": 27,
+      "original_path": "M03/images/M03_P04_D_00060.jpg",
+      "resolved_path": "M03/images/M03_P04_D_0060.jpg",
+      "provided_reading": "5.8 bar / 84 psi",
+      "status": "accepted_after_path_repair",
+      "sample_id": "RG-016",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 22,
+      "md_line": 28,
+      "original_path": "M03/images/M03_P04_D_00063.jpg",
+      "resolved_path": "M03/images/M03_P04_D_0063.jpg",
+      "provided_reading": "0.04 MPa / 0.4 bar",
+      "status": "accepted_after_path_repair",
+      "sample_id": "RG-017",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 23,
+      "md_line": 29,
+      "original_path": "M05/images/M05_P05_W_0063.jpg",
+      "resolved_path": "M05/images/M05_P05_W_0063.jpg",
+      "provided_reading": "4 Pa",
+      "status": "accepted",
+      "sample_id": "RG-018",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 24,
+      "md_line": 30,
+      "original_path": "M05/images/M05_P05_W_0067.jpg",
+      "resolved_path": "M05/images/M05_P05_W_0067.jpg",
+      "provided_reading": "21 Pa",
+      "status": "rejected_conflicting_duplicate",
+      "sample_id": "RG-019",
+      "contributes_to_unique_eval": false,
+      "reason": "Visible red pointer is approximately 42.5 Pa; no 21 Pa pointer is identifiable."
+    },
+    {
+      "row": 25,
+      "md_line": 31,
+      "original_path": "M05/images/M05_P05_W_0067.jpg",
+      "resolved_path": "M05/images/M05_P05_W_0067.jpg",
+      "provided_reading": "42.5 Pa",
+      "status": "accepted_conflict_representative",
+      "sample_id": "RG-019",
+      "contributes_to_unique_eval": true
+    },
+    {
+      "row": 26,
+      "md_line": 32,
+      "original_path": "M06/images/M06_P03_D_0011.jpg",
+      "resolved_path": "M06/images/M06_P03_D_0011.jpg",
+      "provided_reading": "26 A",
+      "status": "accepted",
+      "sample_id": "RG-020",
+      "contributes_to_unique_eval": true,
+      "note": "Target is the A-phase current meter ROI in a multi-meter image."
+    }
+  ],
+  "unique_samples": [
+    {
+      "id": "RG-001",
+      "path": "M01/images/M01_P01_W_0001.jpg",
+      "sha256": "87e3127e7b786ff54d9479ebe562311bb39715c8f3fb6d8f52ad1c28f15e3c7f",
+      "image_size": [
+        700,
+        700
+      ],
+      "source_rows": [
+        1
+      ],
+      "canonical": {
+        "value": 0,
+        "unit": "bar"
+      },
+      "absolute_tolerance": 10,
+      "tolerance_unit": "bar",
+      "confidence": "high"
+    },
+    {
+      "id": "RG-002",
+      "path": "M01/images/M01_P01_W_0101.jpg",
+      "sha256": "7fb37a412d4be4cf434c89d70f4fc6c60481c3a0e2aa37a62bdd8ddcdb4e8562",
+      "image_size": [
+        4032,
+        3024
+      ],
+      "source_rows": [
+        2
+      ],
+      "canonical": {
+        "value": 0.41,
+        "unit": "MPa"
+      },
+      "equivalents": [
+        {
+          "value": 4.1,
+          "unit": "bar",
+          "origin": "unit_conversion"
+        }
+      ],
+      "absolute_tolerance": 0.1,
+      "tolerance_unit": "MPa",
+      "confidence": "high",
+      "correction": "MD unit bar -> printed unit MPa"
+    },
+    {
+      "id": "RG-003",
+      "path": "M01/images/M01_P01_W_0132.jpg",
+      "sha256": "39ac73a74987cba5f78a10648d6a33f26eae930670685a1e72a823606ecd0f63",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        3
+      ],
+      "canonical": {
+        "value": 33.5,
+        "unit": "degC"
+      },
+      "absolute_tolerance": 1,
+      "tolerance_unit": "degC",
+      "confidence": "medium"
+    },
+    {
+      "id": "RG-004",
+      "path": "M01/images/M01_P01_W_0154.jpg",
+      "sha256": "98d8f6349fe7b8f3fb73fdfd9b83bd1eb79f3cca90ff7dc0f5dce6ecae081930",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        4
+      ],
+      "canonical": {
+        "value": 2.45,
+        "unit": "bar"
+      },
+      "absolute_tolerance": 0.25,
+      "tolerance_unit": "bar",
+      "confidence": "medium"
+    },
+    {
+      "id": "RG-005",
+      "path": "M01/images/M01_P01_W_0162.jpg",
+      "sha256": "089fb6e6ee3f095af8fc9764ad6eb7d5ab6706bf2d1a2ee81f44bfabfb569f94",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        5
+      ],
+      "canonical": {
+        "value": 1.25,
+        "unit": "bar"
+      },
+      "absolute_tolerance": 0.2,
+      "tolerance_unit": "bar",
+      "confidence": "medium"
+    },
+    {
+      "id": "RG-006",
+      "path": "M01/images/M01_P01_W_0168.jpg",
+      "sha256": "d207f0392614ca2ef530eea88b70561b08cd9e5c65572924ce8c7f7fbc49c532",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        6
+      ],
+      "canonical": {
+        "value": 0.097,
+        "unit": "bar"
+      },
+      "absolute_tolerance": 0.1,
+      "tolerance_unit": "bar",
+      "confidence": "medium"
+    },
+    {
+      "id": "RG-007",
+      "path": "M01/images/M01_P01_W_0173.jpg",
+      "sha256": "1f3ef7fc3abd896e575f81867152e73cd2bdf207594dd7e93f77de6cf06f9716",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        7
+      ],
+      "canonical": {
+        "value": 293,
+        "unit": "degC"
+      },
+      "absolute_tolerance": 10,
+      "tolerance_unit": "degC",
+      "confidence": "medium"
+    },
+    {
+      "id": "RG-008",
+      "path": "M01/images/M01_P01_W_0179.jpg",
+      "sha256": "5b5efcbf67bd6be1bd2073ffd270907b1ece9709a2daa0b9def0410dc6d244ab",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        8
+      ],
+      "canonical": {
+        "value": 314,
+        "unit": "degC"
+      },
+      "absolute_tolerance": 10,
+      "tolerance_unit": "degC",
+      "confidence": "medium"
+    },
+    {
+      "id": "RG-009",
+      "path": "M01/images/M01_P01_W_0194.jpg",
+      "sha256": "bd5990ab02501b2d03d3ec1de0d27354242bb44e76cf787acbe76128e5e8dca3",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        9
+      ],
+      "canonical": {
+        "value": 1.75,
+        "unit": "kgf/cm2"
+      },
+      "absolute_tolerance": 0.25,
+      "tolerance_unit": "kgf/cm2",
+      "confidence": "medium"
+    },
+    {
+      "id": "RG-010",
+      "path": "M01/images/M01_P01_W_0003.jpg",
+      "sha256": "b7a1552e2cd8d28f47f67418428c2107d79be89bdd2961cdbdbc82d1428bbd63",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        10,
+        13,
+        14,
+        15,
+        16
+      ],
+      "canonical": {
+        "value": 29.9,
+        "unit": "degC"
+      },
+      "absolute_tolerance": 1,
+      "tolerance_unit": "degC",
+      "confidence": "high",
+      "adjudication": "Only row 10 matches the image."
+    },
+    {
+      "id": "RG-011",
+      "path": "M01/images/M01_P01_W_0005.jpg",
+      "sha256": "0b1b0822e5b5fced9bae252c74d07f0b5d6dce71bf131d331d5687068fad3ab7",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        11
+      ],
+      "canonical": {
+        "value": 1.3,
+        "unit": "bar"
+      },
+      "absolute_tolerance": 0.1,
+      "tolerance_unit": "bar",
+      "confidence": "medium"
+    },
+    {
+      "id": "RG-012",
+      "path": "M01/images/M01_P01_W_0006.jpg",
+      "sha256": "40eb058ee6c75d4584e2a2c3e37eeb64910a60c7025396679cafbe4aec4437af",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        12
+      ],
+      "canonical": {
+        "value": 33.3,
+        "unit": "degC"
+      },
+      "absolute_tolerance": 1,
+      "tolerance_unit": "degC",
+      "confidence": "medium"
+    },
+    {
+      "id": "RG-013",
+      "path": "M01/images/M01_P01_W_0019.jpg",
+      "sha256": "85e9977fcd48d30135c43ac42a138b452b54827ee22325c992213b610818829c",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        17,
+        19
+      ],
+      "canonical": {
+        "value": 188,
+        "unit": "bar"
+      },
+      "absolute_tolerance": 10,
+      "tolerance_unit": "bar",
+      "confidence": "high",
+      "adjudication": "Only row 17 matches the pressure gauge."
+    },
+    {
+      "id": "RG-014",
+      "path": "M01/images/M01_P01_W_0022.jpg",
+      "sha256": "c85eb4a939448b4ae2aebfbc0c94bad407ac12b5ae865840d27838766519d562",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        18
+      ],
+      "canonical": {
+        "value": 43,
+        "unit": "degC"
+      },
+      "absolute_tolerance": 2,
+      "tolerance_unit": "degC",
+      "confidence": "medium"
+    },
+    {
+      "id": "RG-015",
+      "path": "M03/images/M03_P04_D_0058.jpg",
+      "sha256": "f538a04a7cf79f4a53b337cfc410dd63648bac4eb1ab34582d485fa0e70095cd",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        20
+      ],
+      "canonical": {
+        "value": 158,
+        "unit": "psi"
+      },
+      "equivalents": [
+        {
+          "value": 1.089,
+          "unit": "MPa",
+          "origin": "derived_from_158_psi_not_from_md_0.98"
+        }
+      ],
+      "absolute_tolerance": 10,
+      "tolerance_unit": "psi",
+      "equivalent_tolerances": [
+        {
+          "value": 0.069,
+          "unit": "MPa"
+        }
+      ],
+      "confidence": "high",
+      "correction": "Discard inconsistent 0.98 MPa component."
+    },
+    {
+      "id": "RG-016",
+      "path": "M03/images/M03_P04_D_0060.jpg",
+      "sha256": "26a9d6a1f614a6fc4444e6ff69d74576407b0dc1a3f02ebc6abe6a96b716f3b1",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        21
+      ],
+      "canonical": {
+        "value": 5.8,
+        "unit": "bar"
+      },
+      "equivalents": [
+        {
+          "value": 84,
+          "unit": "psi",
+          "origin": "printed_second_scale"
+        }
+      ],
+      "absolute_tolerance": 0.1,
+      "tolerance_unit": "bar",
+      "equivalent_tolerances": [
+        {
+          "value": 2,
+          "unit": "psi"
+        }
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "RG-017",
+      "path": "M03/images/M03_P04_D_0063.jpg",
+      "sha256": "c3d43bb433f1f682305617eba9067d56b5ca17e4492eb209937eecaf98ee8170",
+      "image_size": [
+        640,
+        640
+      ],
+      "source_rows": [
+        22
+      ],
+      "canonical": {
+        "value": 0.04,
+        "unit": "MPa"
+      },
+      "equivalents": [
+        {
+          "value": 0.4,
+          "unit": "bar",
+          "origin": "printed_second_scale"
+        }
+      ],
+      "absolute_tolerance": 0.02,
+      "tolerance_unit": "MPa",
+      "equivalent_tolerances": [
+        {
+          "value": 0.2,
+          "unit": "bar"
+        }
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "RG-018",
+      "path": "M05/images/M05_P05_W_0063.jpg",
+      "sha256": "91288399d0036d3d046a162f5e03c1a90d61eba0276922cbe6b025fa386928cc",
+      "image_size": [
+        500,
+        500
+      ],
+      "source_rows": [
+        23
+      ],
+      "canonical": {
+        "value": 4,
+        "unit": "Pa"
+      },
+      "absolute_tolerance": 1,
+      "tolerance_unit": "Pa",
+      "confidence": "medium"
+    },
+    {
+      "id": "RG-019",
+      "path": "M05/images/M05_P05_W_0067.jpg",
+      "sha256": "48c04311b10092e76a95feab0c620e3eeea793219a5b04988ba921c909c9f94a",
+      "image_size": [
+        500,
+        515
+      ],
+      "source_rows": [
+        24,
+        25
+      ],
+      "canonical": {
+        "value": 42.5,
+        "unit": "Pa"
+      },
+      "absolute_tolerance": 2,
+      "tolerance_unit": "Pa",
+      "confidence": "high",
+      "adjudication": "Red pointer matches row 25; row 24 is rejected."
+    },
+    {
+      "id": "RG-020",
+      "path": "M06/images/M06_P03_D_0011.jpg",
+      "sha256": "e688caa80d3486623c125a27c211328b4da88593cf3790a7d84ce5e7516169d2",
+      "image_size": [
+        4032,
+        3024
+      ],
+      "source_rows": [
+        26
+      ],
+      "canonical": {
+        "value": 26,
+        "unit": "A"
+      },
+      "absolute_tolerance": 2.5,
+      "tolerance_unit": "A",
+      "confidence": "medium",
+      "target_roi": "A-phase current meter"
+    }
+  ],
+  "limitations": [
+    "The values are human visual estimates rather than traceable measurements.",
+    "Suggested tolerances are one visible minor division and are not an official competition metric.",
+    "The 20-image benchmark is small and closed-set; it does not establish unseen-meter generalization.",
+    "Rejected duplicate rows cannot be mapped to intended alternative files without new user evidence."
+  ]
+}

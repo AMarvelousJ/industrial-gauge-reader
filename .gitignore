@@ -10,6 +10,8 @@ dataset/
 runs/
 outputs/
 *.pt
+third_party/**/.git.vendor-backup/
+third_party/Gauge-Pointer-Reading/data_valid/
 
 # Generated style-classification artifacts
 style_classifier/data/
