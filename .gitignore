@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+*.py[cod]
+
+# Source datasets are user-provided and must never be rewritten or committed.
+all_set/
+
+# Generated dataset manifests and training outputs
+dataset/
+runs/
+outputs/
+*.pt
+
+# Generated style-classification artifacts
+style_classifier/data/
+style_classifier/runs/
+style_classifier/outputs/
+
+# Ultralytics local settings
+Ultralytics/
