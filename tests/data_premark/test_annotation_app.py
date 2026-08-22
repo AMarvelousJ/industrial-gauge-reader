@@ -94,6 +94,8 @@ def _accepted_payload() -> dict[str, str]:
         "review_shape": "circular_front",
         "pivot_x": "0.5",
         "pivot_y": "0.5",
+        "pointer_tip_x": "0.8",
+        "pointer_tip_y": "0.5",
         "pointer_candidate_id": "pointer-1",
         "pointer_role": "measurement_pointer",
         "pointer_angle_deg": "359.5",
@@ -102,6 +104,14 @@ def _accepted_payload() -> dict[str, str]:
         "range_min": "0",
         "range_max": "100",
         "minor_division": "1",
+        "scope_status": "in_scope",
+        "meter_family": "pressure",
+        "physical_meter_id": "site-a-01",
+        "condition": "normal",
+        "training_track": "company_priority",
+        "source_group": "capture-01",
+        "brand": "Example",
+        "model": "P100",
         "comment": "双刻度，主针清晰",
     }
 
@@ -131,6 +141,7 @@ def test_store_joins_by_record_id_and_round_trips_unicode_csv(tmp_path: Path) ->
     ("field", "value", "message"),
     [
         ("pivot_x", "1.2", "between 0 and 1"),
+        ("pointer_tip_x", "1.2", "between 0 and 1"),
         ("pointer_angle_deg", "360", "must be in"),
         ("range_max", "0", "greater than"),
         ("minor_division", "-1", "greater than zero"),
@@ -163,6 +174,28 @@ def test_external_csv_change_is_not_overwritten(tmp_path: Path) -> None:
         store.save("record-1", _accepted_payload())
 
     assert review.read_bytes() == externally_changed
+
+
+def test_legacy_csv_gains_optional_keypoint_columns_on_save(tmp_path: Path) -> None:
+    source, manifest, review = _fixture(tmp_path)
+    with review.open("r", encoding="utf-8-sig", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+        legacy_fields = [field for field in FIELDS if field not in {"pointer_tip_x", "pointer_tip_y", "scope_status", "meter_family", "physical_meter_id", "condition", "training_track", "source_group", "brand", "model"}]
+    with review.open("w", encoding="utf-8-sig", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=legacy_fields, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+    store = AnnotationStore(review_csv=review, manifest_path=manifest, source_root=source)
+    store.save("record-1", _accepted_payload())
+
+    with review.open("r", encoding="utf-8-sig", newline="") as stream:
+        reader = csv.DictReader(stream)
+        saved = list(reader)
+        assert "pointer_tip_x" in (reader.fieldnames or [])
+    row = next(item for item in saved if item["record_id"] == "record-1")
+    assert row["pointer_tip_x"] == "0.8"
+    assert row["scope_status"] == "in_scope"
 
 
 def test_dev_mode_refuses_frozen_manifest_and_path_escape(tmp_path: Path) -> None:

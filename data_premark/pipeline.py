@@ -469,6 +469,7 @@ def _record_for_image(
             "status": "pending",
             "shape": None,
             "pivot": None,
+            "pointer_tip": None,
             "pointer_candidate_id": None,
             "pointer_role": None,
             "scale_arc": None,
@@ -477,6 +478,14 @@ def _record_for_image(
             "range_min": None,
             "range_max": None,
             "minor_division": None,
+            "scope_status": None,
+            "meter_family": None,
+            "physical_meter_id": None,
+            "condition": None,
+            "training_track": None,
+            "source_group": None,
+            "brand": None,
+            "model": None,
             "comment": None,
         },
     }
@@ -595,8 +604,11 @@ def _write_review_csv(csv_path: Path, records: list[dict[str, Any]], *, private:
     fields = [
         "record_id", "split", "sampling_stratum", "image_path", "duplicate_cluster_id",
         "auto_shape", "review_status", "review_shape", "pivot_x", "pivot_y",
-        "pointer_candidate_id", "pointer_role", "pointer_angle_deg", "reading", "unit", "range_min",
-        "range_max", "minor_division", "comment", "thumbnail",
+        "pointer_tip_x", "pointer_tip_y", "pointer_candidate_id", "pointer_role",
+        "pointer_angle_deg", "reading", "unit", "range_min", "range_max", "minor_division",
+        "scope_status", "meter_family", "physical_meter_id", "condition", "training_track",
+        "source_group", "brand", "model",
+        "comment", "thumbnail",
     ]
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     with csv_path.open("w", encoding="utf-8-sig", newline="") as stream:

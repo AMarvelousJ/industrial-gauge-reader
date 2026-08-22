@@ -96,6 +96,8 @@ function defaultCandidate(item) {
 function applyCandidate(candidate, mark = true) {
   if (!candidate?.tip || !app.pivot) return;
   app.tip = {x: Number(candidate.tip.x), y: Number(candidate.tip.y)};
+  setFormValue("pointer_tip_x", app.tip.x.toFixed(6));
+  setFormValue("pointer_tip_y", app.tip.y.toFixed(6));
   setFormValue("pointer_candidate_id", candidate.candidate_id || "");
   setFormValue("pointer_angle_deg", angleFrom(app.pivot, app.tip).toFixed(3));
   if (mark) markDirty();
@@ -110,13 +112,17 @@ function populateForm(item) {
   app.pivot = defaultPivot(item);
   setFormValue("pivot_x", app.pivot ? app.pivot.x.toFixed(6) : "");
   setFormValue("pivot_y", app.pivot ? app.pivot.y.toFixed(6) : "");
-  ["pointer_candidate_id", "pointer_angle_deg", "reading", "unit", "range_min", "range_max", "minor_division", "comment"].forEach((name) => setFormValue(name, review[name]));
+  ["pointer_candidate_id", "pointer_angle_deg", "reading", "unit", "range_min", "range_max", "minor_division", "scope_status", "meter_family", "physical_meter_id", "condition", "training_track", "source_group", "brand", "model", "comment"].forEach((name) => setFormValue(name, review[name]));
   setFormValue("pointer_role", review.pointer_role || "measurement_pointer");
   setFormValue("review_status", review.review_status || "pending");
-  app.tip = null;
+  const reviewTipX = numberOrNull(review.pointer_tip_x);
+  const reviewTipY = numberOrNull(review.pointer_tip_y);
+  app.tip = reviewTipX !== null && reviewTipY !== null ? {x: reviewTipX, y: reviewTipY} : null;
+  setFormValue("pointer_tip_x", app.tip ? app.tip.x.toFixed(6) : "");
+  setFormValue("pointer_tip_y", app.tip ? app.tip.y.toFixed(6) : "");
   const candidate = defaultCandidate(item);
-  if (candidate && !review.pointer_angle_deg) applyCandidate(candidate, false);
-  else if (candidate) app.tip = {x: Number(candidate.tip.x), y: Number(candidate.tip.y)};
+  if (!app.tip && candidate && !review.pointer_angle_deg) applyCandidate(candidate, false);
+  else if (!app.tip && candidate) app.tip = {x: Number(candidate.tip.x), y: Number(candidate.tip.y)};
   markDirty(false);
 }
 
@@ -211,6 +217,8 @@ function canvasPoint(event) {
 function updatePointerTip(point) {
   if (!app.pivot) return showMessage("请先点击轴心", true);
   app.tip = point;
+  setFormValue("pointer_tip_x", point.x.toFixed(6));
+  setFormValue("pointer_tip_y", point.y.toFixed(6));
   setFormValue("pointer_candidate_id", "");
   setFormValue("pointer_angle_deg", angleFrom(app.pivot, app.tip).toFixed(3));
   markDirty();
@@ -297,6 +305,20 @@ async function start() {
   app.state.shape_labels.forEach((shape) => {
     const option = document.createElement("option"); option.value = shape; option.textContent = shape; shapeSelect.appendChild(option);
   });
+  const scopeSelect = $("#scopeStatus");
+  app.state.scope_statuses.forEach((status) => {
+    const option = document.createElement("option");
+    option.value = status;
+    option.textContent = status || "尚未分类";
+    scopeSelect.appendChild(option);
+  });
+  const trackSelect = $("#trainingTrack");
+  app.state.training_tracks.forEach((track) => {
+    const option = document.createElement("option");
+    option.value = track;
+    option.textContent = track || "尚未分配";
+    trackSelect.appendChild(option);
+  });
   updateProgress(app.state.completed);
   filterItems();
   await navigateTo(0, true);
@@ -306,6 +328,8 @@ document.querySelectorAll(".mode").forEach((button) => button.addEventListener("
 form.addEventListener("input", () => markDirty());
 form.elements.namedItem("pivot_x").addEventListener("input", () => { const x = numberOrNull(currentFormValue("pivot_x")); if (x !== null && app.pivot) { app.pivot.x = x; draw(); } });
 form.elements.namedItem("pivot_y").addEventListener("input", () => { const y = numberOrNull(currentFormValue("pivot_y")); if (y !== null && app.pivot) { app.pivot.y = y; draw(); } });
+form.elements.namedItem("pointer_tip_x").addEventListener("input", () => { const x = numberOrNull(currentFormValue("pointer_tip_x")); if (x !== null && app.tip) { app.tip.x = x; if (app.pivot) setFormValue("pointer_angle_deg", angleFrom(app.pivot, app.tip).toFixed(3)); draw(); } });
+form.elements.namedItem("pointer_tip_y").addEventListener("input", () => { const y = numberOrNull(currentFormValue("pointer_tip_y")); if (y !== null && app.tip) { app.tip.y = y; if (app.pivot) setFormValue("pointer_angle_deg", angleFrom(app.pivot, app.tip).toFixed(3)); draw(); } });
 $("#filterSelect").addEventListener("change", () => { filterItems(); navigateTo(0, true); });
 $("#pendingButton").addEventListener("click", () => save("pending", true));
 $("#acceptedButton").addEventListener("click", () => save("accepted", true));

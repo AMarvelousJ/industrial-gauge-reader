@@ -75,6 +75,10 @@
           <label>轴心 Y<input name="pivot_y" inputmode="decimal" placeholder="0–1"></label>
         </div>
         <div class="field-grid">
+          <label>针尖 X<input name="pointer_tip_x" inputmode="decimal" placeholder="点击针尖自动填写"></label>
+          <label>针尖 Y<input name="pointer_tip_y" inputmode="decimal" placeholder="点击针尖自动填写"></label>
+        </div>
+        <div class="field-grid">
           <label>指针角度<input name="pointer_angle_deg" inputmode="decimal" placeholder="右0°，下90°"></label>
           <label>候选ID<input name="pointer_candidate_id" placeholder="pointer-1"></label>
         </div>
@@ -84,6 +88,24 @@
             <option value="">尚未确定</option>
           </select>
         </label>
+
+        <div class="divider"><span>V1范围与来源</span></div>
+        <label>范围状态
+          <select name="scope_status" id="scopeStatus"></select>
+        </label>
+        <div class="field-grid">
+          <label>仪表族<input name="meter_family" placeholder="pressure / temperature / ammeter"></label>
+          <label>物理仪表ID<input name="physical_meter_id" placeholder="site-A-meter-01"></label>
+        </div>
+        <div class="field-grid triple">
+          <label>拍摄条件<input name="condition" placeholder="normal / glare / low_light"></label>
+          <label>品牌<input name="brand"></label>
+          <label>型号<input name="model"></label>
+        </div>
+        <div class="field-grid">
+          <label>训练轨道<select name="training_track" id="trainingTrack"></select></label>
+          <label>来源组<input name="source_group" placeholder="同一视频/采集批次使用同一ID"></label>
+        </div>
 
         <div class="divider"><span>读数标注</span></div>
         <div class="field-grid reading-grid">

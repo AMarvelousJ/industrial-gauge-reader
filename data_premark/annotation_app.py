@@ -28,11 +28,26 @@ from .pipeline import SHAPE_STRATA
 
 ALLOWED_REVIEW_STATUSES = {"pending", "accepted", "corrected"}
 ALLOWED_POINTER_ROLES = {"", "measurement_pointer", "main_pointer", "measurement"}
+SCOPE_STATUSES = (
+    "",
+    "in_scope",
+    "deferred_dual_pointer",
+    "deferred_dual_scale",
+    "deferred_nested_dial",
+    "deferred_automotive",
+    "deferred_dial_indicator",
+    "deferred_linear",
+    "unreadable",
+    "other",
+)
+TRAINING_TRACKS = ("", "company_priority", "generalization_guardrail")
 EDITABLE_FIELDS = (
     "review_status",
     "review_shape",
     "pivot_x",
     "pivot_y",
+    "pointer_tip_x",
+    "pointer_tip_y",
     "pointer_candidate_id",
     "pointer_role",
     "pointer_angle_deg",
@@ -41,7 +56,32 @@ EDITABLE_FIELDS = (
     "range_min",
     "range_max",
     "minor_division",
+    "scope_status",
+    "meter_family",
+    "physical_meter_id",
+    "condition",
+    "training_track",
+    "source_group",
+    "brand",
+    "model",
     "comment",
+)
+LEGACY_REQUIRED_EDITABLE_FIELDS = tuple(
+    field
+    for field in EDITABLE_FIELDS
+    if field
+    not in {
+        "pointer_tip_x",
+        "pointer_tip_y",
+        "scope_status",
+        "meter_family",
+        "physical_meter_id",
+        "condition",
+        "training_track",
+        "source_group",
+        "brand",
+        "model",
+    }
 )
 COMPLETED_STATUSES = {"accepted", "corrected"}
 
@@ -114,11 +154,14 @@ class AnnotationStore:
             reader = csv.DictReader(stream)
             self.fieldnames = list(reader.fieldnames or [])
             rows = list(reader)
-        missing_fields = set(EDITABLE_FIELDS) - set(self.fieldnames)
+        missing_fields = set(LEGACY_REQUIRED_EDITABLE_FIELDS) - set(self.fieldnames)
         if "record_id" not in self.fieldnames or missing_fields:
             raise AnnotationValidationError(
                 f"review CSV missing fields: {sorted(missing_fields | ({'record_id'} - set(self.fieldnames)))}"
             )
+        # New V1 keypoint metadata is optional for legacy rows.  It is exposed
+        # immediately and appended atomically the next time the user saves.
+        self.fieldnames.extend(field for field in EDITABLE_FIELDS if field not in self.fieldnames)
         self.rows: dict[str, dict[str, str]] = {}
         self.order: list[str] = []
         for row in rows:
@@ -184,6 +227,8 @@ class AnnotationStore:
                 "completed": completed,
                 "pending": len(items) - completed,
                 "shape_labels": list(SHAPE_STRATA),
+                "scope_statuses": list(SCOPE_STATUSES),
+                "training_tracks": list(TRAINING_TRACKS),
                 "items": items,
             }
 
@@ -206,13 +251,29 @@ class AnnotationStore:
             raise AnnotationValidationError("review_shape is not a supported shape label")
         if cleaned["pointer_role"].lower() not in ALLOWED_POINTER_ROLES:
             raise AnnotationValidationError("pointer_role must identify the main measurement pointer")
+        if cleaned["scope_status"] not in SCOPE_STATUSES:
+            raise AnnotationValidationError("scope_status is not supported")
+        if cleaned["training_track"] not in TRAINING_TRACKS:
+            raise AnnotationValidationError("training_track is not supported")
 
         numeric: dict[str, float | None] = {}
-        for field in ("pivot_x", "pivot_y", "pointer_angle_deg", "reading", "range_min", "range_max", "minor_division"):
+        for field in (
+            "pivot_x",
+            "pivot_y",
+            "pointer_tip_x",
+            "pointer_tip_y",
+            "pointer_angle_deg",
+            "reading",
+            "range_min",
+            "range_max",
+            "minor_division",
+        ):
             numeric[field] = _finite_number(cleaned[field], field)
-        for field in ("pivot_x", "pivot_y"):
+        for field in ("pivot_x", "pivot_y", "pointer_tip_x", "pointer_tip_y"):
             if numeric[field] is not None and not 0.0 <= float(numeric[field]) <= 1.0:
                 raise AnnotationValidationError(f"{field} must be between 0 and 1")
+        if (numeric["pointer_tip_x"] is None) != (numeric["pointer_tip_y"] is None):
+            raise AnnotationValidationError("pointer tip coordinates must be provided together")
         angle = numeric["pointer_angle_deg"]
         if angle is not None and not 0.0 <= angle < 360.0:
             raise AnnotationValidationError("pointer_angle_deg must be in [0, 360)")

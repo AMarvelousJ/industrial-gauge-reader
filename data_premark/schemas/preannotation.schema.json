@@ -35,6 +35,25 @@
         "range_min": {"type": ["number", "null"]},
         "range_max": {"type": ["number", "null"]},
         "minor_division": {"type": ["number", "null"]}
+        ,"pointer_tip": {
+          "type": ["object", "null"],
+          "properties": {
+            "x": {"type": "number", "minimum": 0, "maximum": 1},
+            "y": {"type": "number", "minimum": 0, "maximum": 1}
+          },
+          "required": ["x", "y"]
+        }
+        ,"scope_status": {
+          "type": ["string", "null"],
+          "enum": [null, "in_scope", "deferred_dual_pointer", "deferred_dual_scale", "deferred_nested_dial", "deferred_automotive", "deferred_dial_indicator", "deferred_linear", "unreadable", "other"]
+        }
+        ,"meter_family": {"type": ["string", "null"]}
+        ,"physical_meter_id": {"type": ["string", "null"]}
+        ,"condition": {"type": ["string", "null"]}
+        ,"training_track": {"type": ["string", "null"], "enum": [null, "company_priority", "generalization_guardrail"]}
+        ,"source_group": {"type": ["string", "null"]}
+        ,"brand": {"type": ["string", "null"]}
+        ,"model": {"type": ["string", "null"]}
       }
     }
   }
