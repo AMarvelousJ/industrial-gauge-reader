@@ -1,5 +1,7 @@
 param(
-    [string]$OutputDir = "outputs/style_reader/latest"
+    [string]$OutputDir = "outputs/style_reader/latest",
+    [string]$PointerKeypoints = "",
+    [string]$KeypointThresholdFile = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -11,7 +13,14 @@ if (-not (Test-Path -LiteralPath $Python)) {
 
 Push-Location $ProjectRoot
 try {
-    & $Python -m style_reader.run_manifest --output-dir $OutputDir
+    $ReaderArguments = @("-m", "style_reader.run_manifest", "--output-dir", $OutputDir)
+    if ($PointerKeypoints) {
+        $ReaderArguments += @("--pointer-keypoints", $PointerKeypoints)
+    }
+    if ($KeypointThresholdFile) {
+        $ReaderArguments += @("--keypoint-threshold-file", $KeypointThresholdFile)
+    }
+    & $Python @ReaderArguments
     & $Python -m style_reader.evaluate_readings `
         --truth "docs/reading_ground_truth_audit.json" `
         --predictions (Join-Path $OutputDir "predictions.json") `

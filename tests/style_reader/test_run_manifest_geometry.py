@@ -4,10 +4,12 @@ import json
 
 import pytest
 
+from pointer_keypoints.contract import KeypointEstimate
 from style_reader.dial_geometry import geometry_from_ellipse, geometry_from_quadrilateral
 from style_reader.run_manifest import (
     build_stage_diagnostics,
     load_image_list,
+    keypoint_in_working_space,
     merge_tick_reading,
     normalization_policy,
     pointer_semantics,
@@ -58,6 +60,42 @@ def test_detached_marker_is_rejected_during_manifest_selection() -> None:
     assert geometry["selected_pointer_role"] == "measurement"
     assert geometry["pointer_method"] == "semantic_main:hough_line"
     assert geometry["pointer_selection"]["diagnostics"]["marker_candidates"]
+
+
+def test_validated_keypoints_take_priority_over_legacy_pointer_candidates() -> None:
+    geometry = {
+        "status": "angle_estimated",
+        "line_candidates": [
+            {"angle_degrees": 210.0, "score": 0.99, "center_distance_ratio": 0.01, "length_ratio": 0.8}
+        ],
+    }
+    keypoint = KeypointEstimate(
+        "accepted", (100.0, 100.0), (140.0, 100.0), 0.82, 0.78, 90.0, 0.2, 0.5
+    )
+
+    pointer_semantics(geometry, segmented=None, radius=200.0, keypoint=keypoint)
+
+    assert geometry["angle_degrees_clockwise_from_top"] == pytest.approx(90.0)
+    assert geometry["pointer_method"] == "semantic_main:pivot_tip_pose_model"
+    assert geometry["pointer_selection"]["primary"]["candidate_id"] == "learned_keypoints"
+
+
+def test_keypoints_are_transformed_with_rectified_dial() -> None:
+    dial = geometry_from_ellipse((300, 180), (400, 200), 0, confidence=0.9)
+    estimate = KeypointEstimate(
+        "accepted", (300.0, 180.0), (300.0, 80.0), 0.9, 0.9, 0.0, 0.25, 0.5
+    )
+
+    transformed = keypoint_in_working_space(
+        estimate,
+        dial,
+        apply_normalization=True,
+        working_shape=(512, 512, 3),
+    )
+
+    assert transformed.coordinate_system == "canonical"
+    assert transformed.pivot == pytest.approx(dial.canonical_pivot)
+    assert transformed.angle_degrees_clockwise_from_top == pytest.approx(0.0)
 
 
 def test_canonical_pointer_overlay_is_mapped_back_to_source_crop() -> None:

@@ -8,6 +8,9 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
+from pointer_keypoints.contract import KeypointEstimate
+from pointer_keypoints.inference import PointerKeypointEstimator
+
 from .dial_geometry import DialGeometry, estimate_dial_geometry
 from .frozen_detector import FrozenGaugeDetector
 from .geometry import CircleEstimate, analyze_pointer
@@ -73,7 +76,12 @@ def canonical_radius(dial: DialGeometry) -> float:
     return scale_radius / 0.90 if dial.geometry_type != "rectangular_sector" else scale_radius
 
 
-def pointer_semantics(geometry: dict, segmented: dict | None, radius: float) -> None:
+def pointer_semantics(
+    geometry: dict,
+    segmented: dict | None,
+    radius: float,
+    keypoint: KeypointEstimate | None = None,
+) -> None:
     candidates = candidates_from_geometry(geometry)
     if segmented is not None:
         distance_ratio = float(segmented.get("minimum_center_distance", radius)) / max(radius, 1e-6)
@@ -89,8 +97,41 @@ def pointer_semantics(geometry: dict, segmented: dict | None, radius: float) -> 
                 diagnostics={"minimum_center_distance_ratio": round(distance_ratio, 6)},
             )
         )
+    preferred = None
+    if keypoint is not None and keypoint.pivot is not None and keypoint.pointer_tip is not None:
+        preferred = PointerCandidate(
+            candidate_id="learned_keypoints",
+            angle_degrees=keypoint.angle_degrees_clockwise_from_top,
+            confidence=float(keypoint.confidence or 0.0),
+            source="pivot_tip_pose_model",
+            pivot_connected=True,
+            extent_ratio=keypoint.length_ratio,
+            diagnostics={
+                "pivot": list(keypoint.pivot),
+                "pointer_tip": list(keypoint.pointer_tip),
+                "coordinate_system": keypoint.coordinate_system,
+                "status": keypoint.status,
+            },
+        )
+        candidates.append(preferred)
     selection = select_primary_pointer(candidates, ambiguity_margin=0.02)
     geometry["pointer_candidates"] = [candidate.as_dict() for candidate in candidates]
+    if keypoint is not None and keypoint.status == "accepted" and preferred is not None:
+        geometry["pointer_selection"] = {
+            "status": "selected",
+            "angle_degrees": keypoint.angle_degrees_clockwise_from_top,
+            "primary": preferred.as_dict(),
+            "diagnostics": {
+                "preferred_source": "validated_pivot_tip_pose_model",
+                "fallback_selection": selection.as_dict(),
+            },
+        }
+        geometry["selected_pointer_role"] = "measurement"
+        geometry["status"] = "angle_estimated"
+        geometry["angle_degrees_clockwise_from_top"] = keypoint.angle_degrees_clockwise_from_top
+        geometry["pointer_confidence"] = round(float(keypoint.confidence or 0.0), 6)
+        geometry["pointer_method"] = "semantic_main:pivot_tip_pose_model"
+        return
     geometry["pointer_selection"] = selection.as_dict()
     geometry["selected_pointer_role"] = "measurement" if selection.status == "selected" else None
     if selection.status != "selected" or selection.primary is None:
@@ -102,6 +143,36 @@ def pointer_semantics(geometry: dict, segmented: dict | None, radius: float) -> 
     geometry["angle_degrees_clockwise_from_top"] = selection.angle_degrees
     geometry["pointer_confidence"] = round(float(selection.primary.confidence), 6)
     geometry["pointer_method"] = f"semantic_main:{selection.primary.source}"
+
+
+def keypoint_in_working_space(
+    estimate: KeypointEstimate,
+    dial: DialGeometry,
+    *,
+    apply_normalization: bool,
+    working_shape: tuple[int, ...],
+) -> KeypointEstimate:
+    if estimate.pivot is None or estimate.pointer_tip is None:
+        return estimate
+    if not apply_normalization:
+        return estimate
+    mapped = dial.source_to_canonical(np.asarray((estimate.pivot, estimate.pointer_tip), dtype=float))
+    return estimate.with_points(
+        mapped[0],
+        mapped[1],
+        coordinate_system="canonical",
+        dial_diameter=min(working_shape[:2]),
+    )
+
+
+def draw_keypoint_overlay(image: np.ndarray, estimate: KeypointEstimate | None) -> None:
+    if estimate is None or estimate.status != "accepted" or estimate.pivot is None or estimate.pointer_tip is None:
+        return
+    pivot = tuple(int(round(value)) for value in estimate.pivot)
+    tip = tuple(int(round(value)) for value in estimate.pointer_tip)
+    cv2.line(image, pivot, tip, (180, 40, 255), 3, cv2.LINE_AA)
+    cv2.circle(image, pivot, 6, (180, 40, 255), 2, cv2.LINE_AA)
+    cv2.circle(image, tip, 5, (180, 40, 255), 2, cv2.LINE_AA)
 
 
 def source_pointer_overlay(dial: DialGeometry, angle: float | None, radius: float) -> dict | None:
@@ -168,6 +239,7 @@ def build_stage_diagnostics(geometry: dict) -> dict:
         "geometry_reprojection_error": dial.get("reprojection_error"),
         "pointer_selection_status": selection.get("status"),
         "pointer_confidence": geometry.get("pointer_confidence"),
+        "keypoint_status": (geometry.get("keypoint_model") or {}).get("status"),
         "tick_mapping_status": tick.get("status"),
         "issues": issues,
     }
@@ -354,6 +426,9 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("third_party/Gauge-Pointer-Reading/scale_segment.pt"),
     )
+    parser.add_argument("--pointer-keypoints", type=Path, help="Optional trained 2-keypoint pose weights")
+    parser.add_argument("--keypoint-threshold", type=float, default=0.5)
+    parser.add_argument("--keypoint-threshold-file", type=Path)
     parser.add_argument("--limit", type=int, default=0, help="0 processes every unique manifest image")
     return parser.parse_args()
 
@@ -368,6 +443,15 @@ def main() -> None:
         entries = entries[: args.limit]
     detector = FrozenGaugeDetector(args.detector_weights)
     segmenter = YOLO(str(args.pointer_segmenter)) if args.pointer_segmenter.is_file() else None
+    keypoint_threshold = args.keypoint_threshold
+    if args.keypoint_threshold_file is not None:
+        threshold_payload = json.loads(args.keypoint_threshold_file.read_text(encoding="utf-8"))
+        keypoint_threshold = float(threshold_payload["confidence_threshold"])
+    keypoint_estimator = (
+        PointerKeypointEstimator(args.pointer_keypoints, confidence_threshold=keypoint_threshold)
+        if args.pointer_keypoints is not None
+        else None
+    )
     ocr_reader = OCRScaleReader()
     rows: list[dict] = []
     for index, entry in enumerate(entries, start=1):
@@ -387,6 +471,14 @@ def main() -> None:
             dial = estimate_dial_geometry(crop)
             apply_normalization, normalization_reason = normalization_policy(dial)
             working_crop = dial.warp_to_canonical(crop) if apply_normalization else crop
+            keypoint = None
+            if keypoint_estimator is not None:
+                keypoint = keypoint_in_working_space(
+                    keypoint_estimator.predict(crop),
+                    dial,
+                    apply_normalization=apply_normalization,
+                    working_shape=working_crop.shape,
+                )
             source_ocr = ocr_reader.recognize(crop)
             ocr = transform_ocr_to_canonical(source_ocr, dial) if apply_normalization else source_ocr
             override = None
@@ -415,6 +507,7 @@ def main() -> None:
                 "dial_geometry_canonical": "canonical",
                 "circle_pointer_tip_line_candidates": "analysis_image",
                 "segmented_pointer": "canonical" if apply_normalization else "detector_crop",
+                "keypoint_model": "canonical" if apply_normalization else "detector_crop",
                 "ocr_items": "canonical" if apply_normalization else "detector_crop",
                 "source_pointer_overlay": "detector_crop",
             }
@@ -424,6 +517,7 @@ def main() -> None:
             radius_original = circle["radius"] / scale
             segmented = segmented_pointer_angle(segmenter, working_crop, center_original) if segmenter else None
             geometry["segmented_pointer"] = segmented
+            geometry["keypoint_model"] = None if keypoint is None else keypoint.as_dict()
             if segmented is not None:
                 center_distance_ratio = segmented["minimum_center_distance"] / max(radius_original, 1e-6)
                 use_pca_angle = center_distance_ratio <= 0.25
@@ -450,7 +544,19 @@ def main() -> None:
                     }
             else:
                 select_scale_consistent_pointer(geometry, ocr, center_original, radius_original)
-            pointer_semantics(geometry, segmented, radius_original)
+            pointer_semantics(geometry, segmented, radius_original, keypoint)
+            geometry["geometry_source"] = (
+                "pivot_tip_pose_model"
+                if keypoint is not None and keypoint.status == "accepted"
+                else "legacy_geometry_fallback"
+            )
+            if keypoint is not None and keypoint.status == "accepted" and keypoint.pivot is not None:
+                center_original = tuple(float(value) for value in keypoint.pivot)
+                geometry["ocr_geometry_override"] = {
+                    "method": "validated_pivot_tip_pose_model",
+                    "center": [round(value, 3) for value in center_original],
+                    "radius": round(float(radius_original), 3),
+                }
             tick_reading = infer_tick_anchored_reading(
                 ocr,
                 center_original,
@@ -479,11 +585,19 @@ def main() -> None:
             geometry["reading_status"] = reading["status"]
             geometry["stage_diagnostics"] = build_stage_diagnostics(geometry)
             if apply_normalization:
-                geometry["source_pointer_overlay"] = source_pointer_overlay(
-                    dial,
-                    geometry["angle_degrees_clockwise_from_top"],
-                    radius_original,
-                )
+                if keypoint is not None and keypoint.status == "accepted" and keypoint.pivot and keypoint.pointer_tip:
+                    mapped = dial.canonical_to_source(np.asarray((keypoint.pivot, keypoint.pointer_tip), dtype=float))
+                    geometry["source_pointer_overlay"] = {
+                        "center": [round(float(value), 3) for value in mapped[0]],
+                        "tip": [round(float(value), 3) for value in mapped[1]],
+                    }
+                else:
+                    geometry["source_pointer_overlay"] = source_pointer_overlay(
+                        dial,
+                        geometry["angle_degrees_clockwise_from_top"],
+                        radius_original,
+                    )
+            draw_keypoint_overlay(visualization, keypoint)
             output_name = f"{index:02d}_{image_path.stem}.jpg"
             output_path = visual_dir / output_name
             cv2.imwrite(str(output_path), visualization)
@@ -497,6 +611,9 @@ def main() -> None:
         "detector_trained_or_modified": False,
         "pointer_segmenter": None if segmenter is None else str(args.pointer_segmenter.resolve()),
         "pointer_segmenter_trained_or_modified": False,
+        "pointer_keypoints": None if keypoint_estimator is None else str(keypoint_estimator.weights),
+        "pointer_keypoints_trained_or_modified_during_inference": False,
+        "keypoint_confidence_threshold": None if keypoint_estimator is None else keypoint_threshold,
         "input_contract": str(args.image_list.resolve()),
         "input_contains_ground_truth": False,
         "manifest_rows": len(entries),
@@ -504,6 +621,10 @@ def main() -> None:
         "processed_unique": len(rows),
         "detector_success": sum(row["detector"]["status"] == "ok" for row in rows),
         "angle_estimated": sum(bool(row["geometry"] and row["geometry"]["status"] == "angle_estimated") for row in rows),
+        "keypoint_accepted": sum(
+            bool(row["geometry"] and (row["geometry"].get("keypoint_model") or {}).get("status") == "accepted")
+            for row in rows
+        ),
         "actual_reading_available": sum(bool(row["geometry"] and row["geometry"]["reading"] is not None) for row in rows),
         "actual_reading_note": "Values come only from OCR scale fitting and pointer geometry; MD readings are metadata and never enter inference.",
         "results": rows,
