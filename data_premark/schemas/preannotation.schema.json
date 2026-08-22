@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/gauge/preannotation-v1.schema.json",
+  "title": "Gauge pre-annotation record v1",
+  "type": "object",
+  "required": ["schema_version", "record_id", "image", "duplicate_cluster_id", "sampling", "auto_annotation", "human_review"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "record_id": {"type": "string", "minLength": 8},
+    "image": {
+      "type": "object",
+      "required": ["path", "width", "height", "sha256", "phash64"]
+    },
+    "duplicate_cluster_id": {"type": "string"},
+    "sampling": {
+      "type": "object",
+      "required": ["selected", "stratum", "split"],
+      "properties": {
+        "selected": {"type": "boolean"},
+        "stratum": {"type": ["string", "null"], "enum": [null, "circular_front", "circular_perspective", "rectangular_sector", "irregular_occluded_offset"]},
+        "split": {"enum": ["pool", "dev", "frozen_validation"]}
+      }
+    },
+    "auto_annotation": {
+      "type": "object",
+      "required": ["dial_boundary", "shape", "pivot", "pointer_candidates", "selected_pointer_candidate_id", "scale_arc"]
+    },
+    "human_review": {
+      "type": "object",
+      "required": ["status", "shape", "pivot", "pointer_candidate_id", "pointer_role", "scale_arc", "reading", "unit", "range_min", "range_max", "minor_division", "comment"],
+      "properties": {
+        "status": {"enum": ["pending", "accepted", "corrected", "no_output"]},
+        "reading": {"type": ["number", "null"]},
+        "unit": {"type": ["string", "null"]},
+        "range_min": {"type": ["number", "null"]},
+        "range_max": {"type": ["number", "null"]},
+        "minor_division": {"type": ["number", "null"]}
+      }
+    }
+  }
+}
