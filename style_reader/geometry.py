@@ -266,13 +266,17 @@ def _colored_pointer_candidate(image_bgr: np.ndarray, circle: CircleEstimate) ->
     }
 
 
-def analyze_pointer(image_bgr: np.ndarray, ocr_boxes: list | None = None) -> tuple[dict, np.ndarray]:
+def analyze_pointer(
+    image_bgr: np.ndarray,
+    ocr_boxes: list | None = None,
+    circle_override: CircleEstimate | None = None,
+) -> tuple[dict, np.ndarray]:
     if image_bgr is None or image_bgr.size == 0:
         raise ValueError("image_bgr must be a non-empty BGR image")
     analysis, scale = _resize_for_analysis(image_bgr)
     gray = cv2.cvtColor(analysis, cv2.COLOR_BGR2GRAY)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
-    circle = estimate_circle(clahe)
+    circle = circle_override or estimate_circle(clahe)
     pointer_gray = gray.copy()
     masked_boxes = 0
     for raw_box in ocr_boxes or []:

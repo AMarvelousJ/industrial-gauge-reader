@@ -10,6 +10,7 @@ from rapidocr import RapidOCR
 
 from .geometry import clockwise_angle_degrees
 from .scale_fit import OCRNumberObservation, fit_scale_models
+from .tick_mapping import OCRNumericLabel, PrimaryTick, fit_tick_mapping
 
 
 NUMBER_RE = re.compile(r"^[−-]?\d+(?:[.,]\d+)?$")
@@ -144,6 +145,72 @@ def extract_scale_points(ocr: dict, center: tuple[float, float], radius: float) 
             )
         )
     return points, list(dict.fromkeys(units))
+
+
+def infer_tick_anchored_reading(
+    ocr: dict,
+    center: tuple[float, float],
+    radius: float,
+    pointer_angle: float | None,
+    tick_angles: list[float] | tuple[float, ...],
+) -> dict:
+    """Fit a scale after snapping OCR numerals to detected major tick rays.
+
+    This is deliberately a conservative adapter around :mod:`tick_mapping`.
+    It only produces a reading when at least three distinct OCR labels can be
+    associated with physical tick candidates and the resulting values are
+    monotonic.  Callers may retain the legacy OCR-centre fit as a fallback.
+    """
+    points, units = extract_scale_points(ocr, center, radius)
+    labels = [
+        OCRNumericLabel(
+            label_id=f"ocr:{index}",
+            value=float(point.value),
+            text_coordinate=float(point.angle),
+            confidence=float(point.score),
+            diagnostics={
+                "text": point.text,
+                "x": round(float(point.x), 3),
+                "y": round(float(point.y), 3),
+            },
+        )
+        for index, point in enumerate(points)
+    ]
+    ticks = [
+        PrimaryTick(
+            tick_id=f"tick:{index}",
+            coordinate=float(angle) % 360.0,
+            confidence=0.6,
+        )
+        for index, angle in enumerate(dict.fromkeys(round(float(value) % 360.0, 4) for value in tick_angles))
+    ]
+    fitted = fit_tick_mapping(
+        labels,
+        ticks,
+        max_tick_distance=9.0,
+        ambiguity_distance=0.35,
+        min_anchors=3,
+    )
+    mapped = None if pointer_angle is None else fitted.map_pointer(float(pointer_angle))
+    associated = [item for item in fitted.associations if item.status == "associated" and item.tick is not None]
+    distinct_ticks = {item.tick.tick_id for item in associated if item.tick is not None}
+    safe = (
+        fitted.status == "ok"
+        and mapped is not None
+        and mapped.status == "ok"
+        and len(associated) >= 3
+        and len(distinct_ticks) >= 3
+    )
+    return {
+        "status": "ok" if safe else ("no_output" if mapped is None else mapped.status),
+        "reading": None if not safe or mapped is None else mapped.value,
+        "method": "tick_anchored_piecewise" if safe else "tick_anchored_unavailable",
+        "unit_candidates": units,
+        "associated_anchor_count": len(associated),
+        "distinct_tick_count": len(distinct_ticks),
+        "tick_mapping": fitted.as_dict(),
+        "pointer_mapping": None if mapped is None else mapped.as_dict(),
+    }
 
 
 def fit_linear_scale(points: list[ScalePoint], pointer_angle: float | None) -> dict:

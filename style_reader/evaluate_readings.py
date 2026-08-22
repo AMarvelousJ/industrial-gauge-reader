@@ -33,6 +33,7 @@ ALLOWED_STATUSES = frozenset({"ok", "detector_miss", "no_output"})
 # comparable to the same physical dimension.
 _UNIT_DEFINITIONS: dict[str, tuple[str, float]] = {
     "MPa": ("pressure", 1_000_000.0),
+    "kPa": ("pressure", 1_000.0),
     "bar": ("pressure", 100_000.0),
     "psi": ("pressure", 6_894.757293168),
     "Pa": ("pressure", 1.0),
@@ -43,6 +44,7 @@ _UNIT_DEFINITIONS: dict[str, tuple[str, float]] = {
 
 _UNIT_ALIASES = {
     "mpa": "MPa",
+    "kpa": "kPa",
     "bar": "bar",
     "psi": "psi",
     "pa": "Pa",

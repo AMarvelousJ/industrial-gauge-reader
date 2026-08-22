@@ -46,6 +46,7 @@ def _small_truth():
 
 def test_unit_normalization_and_compatible_conversions():
     assert convert_value(1, "MPa", "bar") == pytest.approx(10)
+    assert convert_value(1, "kPa", "Pa") == pytest.approx(1_000)
     assert convert_value(1, "bar", "Pa") == pytest.approx(100_000)
     assert convert_value(100_000, "Pa", "bar") == pytest.approx(1)
     assert convert_value(14.5037738, "psi", "bar") == pytest.approx(1, rel=1e-7)
@@ -56,8 +57,6 @@ def test_unit_normalization_and_compatible_conversions():
 
     with pytest.raises(ValueError, match="incompatible units"):
         convert_value(20, "degC", "bar")
-    with pytest.raises(ValueError, match="unsupported unit"):
-        convert_value(1, "kPa", "Pa")
 
 
 def test_missing_and_explicit_no_output_are_incorrect_and_reduce_coverage():

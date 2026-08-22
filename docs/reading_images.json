@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "images": [
+    {"sample_id": "RG-001", "path": "M01/images/M01_P01_W_0001.jpg"},
+    {"sample_id": "RG-002", "path": "M01/images/M01_P01_W_0101.jpg"},
+    {"sample_id": "RG-003", "path": "M01/images/M01_P01_W_0132.jpg"},
+    {"sample_id": "RG-004", "path": "M01/images/M01_P01_W_0154.jpg"},
+    {"sample_id": "RG-005", "path": "M01/images/M01_P01_W_0162.jpg"},
+    {"sample_id": "RG-006", "path": "M01/images/M01_P01_W_0168.jpg"},
+    {"sample_id": "RG-007", "path": "M01/images/M01_P01_W_0173.jpg"},
+    {"sample_id": "RG-008", "path": "M01/images/M01_P01_W_0179.jpg"},
+    {"sample_id": "RG-009", "path": "M01/images/M01_P01_W_0194.jpg"},
+    {"sample_id": "RG-010", "path": "M01/images/M01_P01_W_0003.jpg"},
+    {"sample_id": "RG-011", "path": "M01/images/M01_P01_W_0005.jpg"},
+    {"sample_id": "RG-012", "path": "M01/images/M01_P01_W_0006.jpg"},
+    {"sample_id": "RG-013", "path": "M01/images/M01_P01_W_0019.jpg"},
+    {"sample_id": "RG-014", "path": "M01/images/M01_P01_W_0022.jpg"},
+    {"sample_id": "RG-015", "path": "M03/images/M03_P04_D_0058.jpg"},
+    {"sample_id": "RG-016", "path": "M03/images/M03_P04_D_0060.jpg"},
+    {"sample_id": "RG-017", "path": "M03/images/M03_P04_D_0063.jpg"},
+    {"sample_id": "RG-018", "path": "M05/images/M05_P05_W_0063.jpg"},
+    {"sample_id": "RG-019", "path": "M05/images/M05_P05_W_0067.jpg"},
+    {"sample_id": "RG-020", "path": "M06/images/M06_P03_D_0011.jpg"}
+  ]
+}

@@ -47,24 +47,32 @@ def main() -> None:
         crop = source[top:bottom, left:right].copy()
         geometry = row.get("geometry") or {}
         if geometry:
-            analysis_scale = float(geometry.get("analysis_scale") or 1.0)
-            override = geometry.get("ocr_geometry_override")
-            if override:
-                center = tuple(float(value) for value in override["center"])
-                radius = float(override["radius"])
-            else:
-                circle = geometry["circle"]
-                center = (circle["center_x"] / analysis_scale, circle["center_y"] / analysis_scale)
-                radius = circle["radius"] / analysis_scale
-            angle = geometry.get("angle_degrees_clockwise_from_top")
-            if angle is not None:
-                radians = math.radians(float(angle))
-                tip = (
-                    round(center[0] + radius * 0.72 * math.sin(radians)),
-                    round(center[1] - radius * 0.72 * math.cos(radians)),
-                )
+            source_overlay = geometry.get("source_pointer_overlay")
+            if source_overlay:
+                center = tuple(float(value) for value in source_overlay["center"])
+                tip = tuple(round(float(value)) for value in source_overlay["tip"])
+                radius = max(1.0, math.hypot(tip[0] - center[0], tip[1] - center[1]) / 0.72)
                 cv2.line(crop, (round(center[0]), round(center[1])), tip, (255, 0, 255), max(3, round(radius * 0.012)))
                 cv2.circle(crop, (round(center[0]), round(center[1])), max(4, round(radius * 0.018)), (255, 0, 255), -1)
+            else:
+                analysis_scale = float(geometry.get("analysis_scale") or 1.0)
+                override = geometry.get("ocr_geometry_override")
+                if override:
+                    center = tuple(float(value) for value in override["center"])
+                    radius = float(override["radius"])
+                else:
+                    circle = geometry["circle"]
+                    center = (circle["center_x"] / analysis_scale, circle["center_y"] / analysis_scale)
+                    radius = circle["radius"] / analysis_scale
+                angle = geometry.get("angle_degrees_clockwise_from_top")
+                if angle is not None:
+                    radians = math.radians(float(angle))
+                    tip = (
+                        round(center[0] + radius * 0.72 * math.sin(radians)),
+                        round(center[1] - radius * 0.72 * math.cos(radians)),
+                    )
+                    cv2.line(crop, (round(center[0]), round(center[1])), tip, (255, 0, 255), max(3, round(radius * 0.012)))
+                    cv2.circle(crop, (round(center[0]), round(center[1])), max(4, round(radius * 0.018)), (255, 0, 255), -1)
         tile = np.full((tile_height, tile_width, 3), 250, dtype=np.uint8)
         tile[:image_height] = fit_tile(crop, tile_width, image_height)
         predicted_text = format_value(prediction.get("value"), prediction.get("unit")) if prediction["status"] == "ok" else prediction["status"]
