@@ -38,6 +38,18 @@
 
 JSON记录接口由 `schemas/preannotation.schema.json` 固定为1.0.0。
 
+## 本地可视化标注器
+
+不要手工计算归一化轴心和指针角度。下面的命令只加载80张开发集并在浏览器打开本地页面；开发模式会拒绝冻结manifest：
+
+```powershell
+.\scripts\run_annotation_ui.ps1
+```
+
+页面中点击“轴心”后在原图上点轴心，再选择自动候选针，或切换“针尖”模式从轴心向针尖拖动。角度自动按右0°、下90°计算。`接受并下一张`与`修正并下一张`要求读数、单位、量程等字段完整；无法判断的样本使用`暂存待复核`并在备注中说明，不能把`no_output`作为完成状态。
+
+服务默认只监听`127.0.0.1:8765`，图片只能按开发manifest中的`record_id`访问。保存仅更新审核列，使用同目录临时文件和原子替换，并在覆盖前保留`review.csv.bak`。如果CSV在页面外被修改，服务会拒绝覆盖并要求重新启动。
+
 ## 审核验收
 
 审核者分别在开发集 `review.csv` 和私有冻结集 `frozen_private/review_frozen.csv` 中填写：`review_status`（`accepted`或`corrected`）、`review_shape`、归一化轴心 `pivot_x/pivot_y`、主测量指针角色和 `pointer_angle_deg`。角度采用图像坐标：向右为0°、向下为90°。读数、单位、量程必须填写；`minor_division`可留空，此时使用满量程的1%作为容差。

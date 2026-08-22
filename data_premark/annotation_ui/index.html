@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>仪表盘开发集标注器</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">MULTI-FORM GAUGE · DEV REVIEW</p>
+      <h1>仪表盘开发集标注器</h1>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-copy"><span id="progressText">正在载入…</span><span id="saveState">未修改</span></div>
+      <div class="progress-track"><span id="progressBar"></span></div>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="sample-panel panel">
+      <div class="panel-heading">
+        <div>
+          <span class="section-kicker">样本</span>
+          <strong id="sampleCounter">—</strong>
+        </div>
+        <select id="filterSelect" aria-label="筛选样本">
+          <option value="all">全部</option>
+          <option value="pending">仅待审核</option>
+          <option value="completed">仅已完成</option>
+        </select>
+      </div>
+      <div id="sampleList" class="sample-list"></div>
+      <div class="shortcut-note">A / D 切换 · P 轴心 · T 针尖 · Ctrl+S 保存</div>
+    </aside>
+
+    <section class="canvas-panel panel">
+      <div class="canvas-toolbar">
+        <div class="mode-group" role="group" aria-label="标注模式">
+          <button class="mode active" data-mode="inspect">浏览</button>
+          <button class="mode" data-mode="pivot">P · 点击轴心</button>
+          <button class="mode" data-mode="pointer">T · 点击针尖</button>
+        </div>
+        <div class="zoom-copy" id="imageMeta">—</div>
+      </div>
+      <div id="canvasStage" class="canvas-stage">
+        <div id="loadingOverlay" class="loading-overlay">载入原图…</div>
+        <canvas id="annotationCanvas"></canvas>
+      </div>
+      <div class="legend">
+        <span><i class="dot auto-pivot"></i>自动轴心</span>
+        <span><i class="line auto-pointer"></i>自动候选针</span>
+        <span><i class="dot review-pivot"></i>人工轴心</span>
+        <span><i class="line review-pointer"></i>人工主针</span>
+      </div>
+      <div>
+        <span class="section-kicker">自动指针候选</span>
+        <div id="candidateList" class="candidate-list"></div>
+      </div>
+    </section>
+
+    <aside class="form-panel panel">
+      <div class="record-title">
+        <div><span class="section-kicker">当前记录</span><h2 id="recordId">—</h2></div>
+        <span id="shapeBadge" class="badge">—</span>
+      </div>
+
+      <form id="reviewForm" autocomplete="off">
+        <label>表盘形态
+          <select name="review_shape" id="reviewShape"></select>
+        </label>
+        <div class="field-grid">
+          <label>轴心 X<input name="pivot_x" inputmode="decimal" placeholder="0–1"></label>
+          <label>轴心 Y<input name="pivot_y" inputmode="decimal" placeholder="0–1"></label>
+        </div>
+        <div class="field-grid">
+          <label>指针角度<input name="pointer_angle_deg" inputmode="decimal" placeholder="右0°，下90°"></label>
+          <label>候选ID<input name="pointer_candidate_id" placeholder="pointer-1"></label>
+        </div>
+        <label>指针角色
+          <select name="pointer_role">
+            <option value="measurement_pointer">主测量针</option>
+            <option value="">尚未确定</option>
+          </select>
+        </label>
+
+        <div class="divider"><span>读数标注</span></div>
+        <div class="field-grid reading-grid">
+          <label>实际读数<input name="reading" inputmode="decimal" placeholder="例如 42.5"></label>
+          <label>单位<input name="unit" list="unitOptions" placeholder="例如 bar"></label>
+        </div>
+        <datalist id="unitOptions">
+          <option value="MPa"><option value="kPa"><option value="Pa"><option value="bar">
+          <option value="psi"><option value="kgf/cm²"><option value="℃"><option value="A">
+          <option value="V"><option value="rpm"><option value="km/h"><option value="%">
+        </datalist>
+        <div class="field-grid triple">
+          <label>量程下限<input name="range_min" inputmode="decimal"></label>
+          <label>量程上限<input name="range_max" inputmode="decimal"></label>
+          <label>最小分度<input name="minor_division" inputmode="decimal" placeholder="可留空"></label>
+        </div>
+        <label>审核备注<textarea name="comment" rows="3" placeholder="遮挡、双刻度、争议点等"></textarea></label>
+        <input type="hidden" name="review_status" value="pending">
+      </form>
+
+      <div id="messageBox" class="message-box" aria-live="polite"></div>
+      <div class="actions">
+        <button id="pendingButton" class="secondary">暂存待复核</button>
+        <button id="acceptedButton" class="secondary accent">接受并下一张</button>
+        <button id="correctedButton" class="primary">修正并下一张</button>
+      </div>
+      <p class="safety-note">只写入开发集 review.csv；每次保存前自动生成 review.csv.bak。</p>
+    </aside>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

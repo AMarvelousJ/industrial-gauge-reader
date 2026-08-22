@@ -652,7 +652,7 @@ def _write_review_files(output_dir: Path, selected: list[dict[str, Any]]) -> Non
             "- Confirm or correct the dial boundary, shape, pivot, main measurement pointer, and scale arc from the thumbnail and source image.",
             "- Mark red set-point/maximum markers as `red_marker`; do not select them as the measurement pointer.",
             "- Enter reading, unit, range, and minimum division only by independent human review.",
-            "- Use `no_output` in `review_status` when the main pointer or scale cannot be determined reliably.",
+            "- Keep `review_status=pending` and explain the issue in `comment` when the main pointer or scale cannot be determined; resolve it before acceptance.",
             "",
             "## Visual index",
             "",
