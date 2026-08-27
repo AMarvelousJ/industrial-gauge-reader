@@ -62,7 +62,7 @@ def test_detached_marker_is_rejected_during_manifest_selection() -> None:
     assert geometry["pointer_selection"]["diagnostics"]["marker_candidates"]
 
 
-def test_validated_keypoints_take_priority_over_legacy_pointer_candidates() -> None:
+def test_keypoint_disagreement_keeps_geometric_selection() -> None:
     geometry = {
         "status": "angle_estimated",
         "line_candidates": [
@@ -75,9 +75,32 @@ def test_validated_keypoints_take_priority_over_legacy_pointer_candidates() -> N
 
     pointer_semantics(geometry, segmented=None, radius=200.0, keypoint=keypoint)
 
-    assert geometry["angle_degrees_clockwise_from_top"] == pytest.approx(90.0)
-    assert geometry["pointer_method"] == "semantic_main:pivot_tip_pose_model"
-    assert geometry["pointer_selection"]["primary"]["candidate_id"] == "learned_keypoints"
+    # 90-deg keypoint vs 210-deg geometric line = 120-deg disagreement: the
+    # geometric angle is kept untouched and the disagreement is recorded.
+    assert geometry["angle_degrees_clockwise_from_top"] == pytest.approx(210.0)
+    assert geometry["pointer_method"].startswith("semantic_main:")
+    assert geometry["keypoint_model"]["status"] == "disagrees"
+    assert "learned_keypoints" not in [c["candidate_id"] for c in geometry["pointer_candidates"]]
+
+
+def test_keypoints_are_diagnostic_even_when_agreeing() -> None:
+    geometry = {
+        "status": "angle_estimated",
+        "line_candidates": [
+            {"angle_degrees": 210.0, "score": 0.99, "center_distance_ratio": 0.01, "length_ratio": 0.8}
+        ],
+    }
+    keypoint = KeypointEstimate(
+        "accepted", (100.0, 100.0), (139.0, 46.0), 0.82, 0.78, 210.5, 0.2, 0.5
+    )
+
+    pointer_semantics(geometry, segmented=None, radius=200.0, keypoint=keypoint)
+
+    # Even when the keypoint agrees within tolerance, the geometric angle is kept
+    # (the pose model has not yet reached the 2-degree precision bar); the
+    # agreement is recorded as "validated" for the next iteration.
+    assert geometry["angle_degrees_clockwise_from_top"] == pytest.approx(210.0)
+    assert geometry["keypoint_model"]["status"] == "validated"
 
 
 def test_keypoints_are_transformed_with_rectified_dial() -> None:

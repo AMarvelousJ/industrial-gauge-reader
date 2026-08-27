@@ -19,9 +19,10 @@ class FrozenGaugeDetector:
         self.padding = padding
         self.model = YOLO(str(self.weights))
 
-    def crop(self, image_path: Path) -> tuple[np.ndarray | None, dict]:
+    def crop(self, image_path: Path | np.ndarray) -> tuple[np.ndarray | None, dict]:
+        source = image_path if isinstance(image_path, np.ndarray) else str(image_path)
         results = self.model.predict(
-            source=str(image_path), conf=self.confidence, imgsz=self.image_size, max_det=1, verbose=False
+            source=source, conf=self.confidence, imgsz=self.image_size, max_det=1, verbose=False
         )
         if not results or results[0].boxes is None or len(results[0].boxes) == 0:
             return None, {"status": "detector_miss", "confidence": None, "box_xyxy": None}

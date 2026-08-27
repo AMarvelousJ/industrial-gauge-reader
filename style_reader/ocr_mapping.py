@@ -116,7 +116,84 @@ class OCRScaleReader:
                 )
                 if not duplicate:
                     items.append(candidate)
+        # T-D2-b: multi-pass OCR enhancement.  Preprocessing variants (CLAHE /
+        # binarization / contrast normalize / inverted) rescue low-contrast,
+        # dark-dial and blurry gauges.  Runs ONLY when native + rotation passes
+        # still give fewer than 3 numeric tokens (never touches a successful
+        # OCR result).  Fused incrementally: existing tokens are never replaced;
+        # a variant token is added only when no same-position same-text token
+        # exists yet, and every added token carries its pass name for auditing.
+        def _numeric_count(items_list: list[dict]) -> int:
+            return sum(
+                bool(NUMBER_RE.fullmatch(str(it["text"]).strip().replace("−", "-").replace("—", "")))
+                and float(it["score"]) >= 0.55
+                for it in items_list
+            )
+
+        if _numeric_count(items) < 2:
+            gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
+            _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            contrast = cv2.normalize(gray, None, 0, 255, cv2.NORM_MINMAX)
+            variants = {
+                "clahe": clahe,
+                "otsu_binary": otsu,
+                "contrast_norm": contrast,
+                "inverted": 255 - gray,
+            }
+            spatial_tolerance = 0.035 * max(image_bgr.shape[:2])
+            for variant_name, variant_gray in variants.items():
+                variant_bgr = cv2.cvtColor(variant_gray, cv2.COLOR_GRAY2BGR)
+                variant_output = self.engine(variant_bgr)
+                for box, text, score in zip(
+                    [] if variant_output.boxes is None else variant_output.boxes,
+                    [] if variant_output.txts is None else variant_output.txts,
+                    [] if variant_output.scores is None else variant_output.scores,
+                ):
+                    token = str(text).strip().replace("−", "-").replace("—", "")
+                    # Variant passes are noisier than the native pass: only high-
+                    # confidence tokens may join (0.80 vs the 0.55 native bar).
+                    if not NUMBER_RE.fullmatch(token) or float(score) < 0.80:
+                        continue
+                    points = np.asarray(box, dtype=float)
+                    center = points.mean(axis=0)
+                    duplicate = any(
+                        str(existing["text"]).strip().replace("−", "-").replace("—", "") == token
+                        and math.hypot(float(existing["center"][0]) - center[0], float(existing["center"][1]) - center[1])
+                        <= spatial_tolerance
+                        for existing in items
+                    )
+                    if duplicate:
+                        continue
+                    items.append(
+                        {
+                            "text": token,
+                            "score": round(float(score), 6),
+                            "box": points.round(2).tolist(),
+                            "center": center.round(3).tolist(),
+                            "ocr_variant_pass": variant_name,
+                        }
+                    )
         return {"items": items, "elapsed_seconds": round(float(output.elapse or 0.0), 6)}
+
+
+ZERO_CONFUSIONS = {"D", "O", "o"}
+
+
+def _normalize_scale_token(text: str) -> str | None:
+    """Repair classic OCR zero lookalikes on scale numerals.
+
+    Dial silkscreens place a small \"0\" at the scale start; on low-contrast
+    faces it is routinely read as D / O (and occasionally \"0\" as \"1\").  The
+    monotonic scale fit backstops this: a wrong anchor violates monotonicity and
+    is rejected as an outlier, while a corrected zero completes the arc.
+    """
+    t = text.strip().replace("−", "-").replace("—", "")
+    if t in ZERO_CONFUSIONS:
+        return "0"
+    if t in {"O0", "o0"}:
+        return "0"
+    return t if NUMBER_RE.fullmatch(t) else None
 
 
 def extract_scale_points(ocr: dict, center: tuple[float, float], radius: float) -> tuple[list[ScalePoint], list[str]]:
@@ -127,8 +204,10 @@ def extract_scale_points(ocr: dict, center: tuple[float, float], radius: float) 
         if "mpapsi" in text.lower().replace(" ", ""):
             units.extend(["MPa", "PSI"])
         units.extend(match.group(0) for match in UNIT_RE.finditer(text))
-        if not NUMBER_RE.fullmatch(text) or item["score"] < 0.55:
+        normalized = _normalize_scale_token(text)
+        if normalized is None or item["score"] < 0.55:
             continue
+        text = normalized
         x, y = item["center"]
         radial_distance = math.hypot(x - center[0], y - center[1])
         if not radius * 0.38 <= radial_distance <= radius * 1.12:
@@ -342,6 +421,88 @@ def fit_linear_scale(points: list[ScalePoint], pointer_angle: float | None) -> d
             if is_inlier
         ],
     }
+
+
+def interpolate_reading_at_anchors(
+    scale_points: list[dict],
+    pointer_angle: float | None,
+) -> dict | None:
+    """Local anchor interpolation for box gauges (family-aware fallback).
+
+    The angular positions of printed scale numerals are displaced from their
+    ticks by a different amount per glyph, so a global linear fit rejects the
+    low-end anchors and extrapolates the pointer (RG-018: -4.05 Pa vs 4 Pa).
+    This helper interpolates ONLY between the two adjacent anchors around the
+    pointer angle:
+      - uses the existing OCR anchors (never new detections),
+      - stays monotonic (anchors are unwrapped and value-monotonicity required),
+      - never extrapolates (bracket must contain the pointer),
+      - returns None when no valid bracket exists so the caller falls back to
+        the legacy RANSAC fit.
+
+    Returns None or {"status": "ok", "reading": value, "method":
+    "local_anchor_interpolation", "anchor_pair": [a1, a2], "anchor_values":
+    [v1, v2], "pointer_angle": ptr}.
+    """
+    if pointer_angle is None:
+        return None
+    points: list[tuple[float, float]] = []
+    for point in scale_points or []:
+        try:
+            angle = float(point.get("angle"))
+            value = float(point.get("value"))
+        except (TypeError, ValueError):
+            continue
+        if not (math.isfinite(angle) and math.isfinite(value)):
+            continue
+        points.append((angle % 360.0, value))
+    if len(points) < 2:
+        return None
+    # Duplicated values mean interleaved rings (dual scale) -> ambiguous, reject.
+    if len({value for _, value in points}) != len(points):
+        return None
+    # The scale VALUES are the ordering key (0, 10, 20 ... on the dial); the
+    # printed angles wrap across 360, so sort by value and then unwrap each
+    # angle to stay >= the previous one.  A non-ascending unwrapped angle means
+    # mixed-ring / corrupted anchors -> None (fall back to legacy RANSAC).
+    points.sort(key=lambda item: item[1])
+    unwrapped: list[tuple[float, float]] = []
+    carry = 0.0
+    previous = None
+    for angle, value in points:
+        if previous is not None:
+            while angle + carry <= previous + 1e-9:
+                carry += 360.0
+        unwrapped.append((angle + carry, value))
+        previous = angle + carry
+    low = unwrapped[0][0]
+    high = unwrapped[-1][0]
+    pointer = float(pointer_angle)
+    candidates_u = [pointer]
+    if pointer < low:
+        candidates_u.append(pointer + 360.0)
+    if pointer > high:
+        candidates_u.append(pointer - 360.0)
+    for pointer_u in candidates_u:
+        if not (low <= pointer_u <= high):
+            continue
+        for index in range(len(unwrapped) - 1):
+            a1, v1 = unwrapped[index]
+            a2, v2 = unwrapped[index + 1]
+            if a2 - a1 < 1e-9:
+                continue
+            if a1 <= pointer_u <= a2:
+                ratio = (pointer_u - a1) / (a2 - a1)
+                value = v1 + ratio * (v2 - v1)
+                return {
+                    "status": "ok",
+                    "reading": round(float(value), 6),
+                    "method": "local_anchor_interpolation",
+                    "pointer_angle": round(pointer_u % 360.0, 4),
+                    "anchor_pair": [round(a1 % 360.0, 4), round(a2 % 360.0, 4)],
+                    "anchor_values": [float(v1), float(v2)],
+                }
+    return None
 
 
 def infer_reading(

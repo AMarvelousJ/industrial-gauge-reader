@@ -115,7 +115,17 @@ def _measurement_score(candidate: PointerCandidate) -> float:
     # A connected segmentation mask observes the full shaft, while Hough often
     # scores a long numeral or frame edge highly.  Keep the preference explicit
     # and auditable instead of letting incomparable raw confidences decide it.
+    # A connected segmentation mask observes the full shaft, while Hough often
+    # scores a long numeral or frame edge highly.  Keep the preference explicit
+    # and auditable instead of letting incomparable raw confidences decide it.
     source_bonus = 0.22 if candidate.source == "mit_scale_segment_pointer_mask" else 0.0
+    # Thin-needle semantic evidence: an elongated red needle that also passes
+    # radially through the hub region (high consistency) is a measurement
+    # needle.  The bonus is modest so a centroid-attached mask still outranks it.
+    if candidate.source == "colored" and candidate.diagnostics.get("thin_needle_semantic_evidence"):
+        source_bonus = 0.10
+        if float(candidate.diagnostics.get("radial_consistency") or 1.0) <= 0.18:
+            source_bonus = 0.15
     return confidence + extent_bonus + pivot_bonus + source_bonus
 
 
@@ -203,17 +213,39 @@ def candidates_from_geometry(geometry: Mapping[str, Any]) -> list[PointerCandida
     candidates: list[PointerCandidate] = []
     colored = geometry.get("colored_pointer_candidate") or {}
     if colored:
+        elongation = float(colored.get("elongation", 0.0) or 0.0)
+        extent_ratio = colored.get("extent_ratio")
+        detached = bool(colored.get("detached_scale_marker", False))
+        # A very thin, long needle-shaped red component is the measurement
+        # pointer even when its base is far from the fitted circle center
+        # (off-center pivots on Magnehelic / box gauges).  Short red wedges
+        # remain setpoint / scale markers.
+        thin_needle = elongation >= 5.0 and (_finite(extent_ratio) and float(extent_ratio) >= 0.35)
+        effective_detached = detached and not thin_needle
+        colored_diagnostics = {
+            key: value
+            for key, value in colored.items()
+            if key not in {"angle_degrees", "confidence"}
+        }
+        if thin_needle:
+            colored_diagnostics["thin_needle_semantic_evidence"] = True
         candidates.append(
             PointerCandidate(
                 candidate_id="colored",
                 angle_degrees=colored.get("angle_degrees"),
                 confidence=float(colored.get("confidence", 0.0)),
                 source="colored",
-                pivot_connected=not bool(colored.get("detached_scale_marker", False)),
+                pivot_connected=not effective_detached,
+                # The normal ranking intentionally keeps the legacy score (no
+                # extent bonus): on round dials a red set-point marker / arc can
+                # otherwise outscore the true dark needle.  The extent bonus is
+                # applied only when the frame-line override considers this
+                # candidate as an alternative.
                 extent_ratio=None,
-                semantic_role="setpoint" if bool(colored.get("detached_scale_marker", False)) else "auto",
-                detached=bool(colored.get("detached_scale_marker", False)),
-                diagnostics={key: value for key, value in colored.items() if key not in {"angle_degrees", "confidence"}},
+                pivot_distance_ratio=None if not _finite(colored.get("base_distance_ratio")) else float(colored.get("base_distance_ratio")),
+                semantic_role="setpoint" if effective_detached else "auto",
+                detached=effective_detached,
+                diagnostics=colored_diagnostics,
             )
         )
     for index, raw in enumerate(geometry.get("line_candidates") or []):
@@ -250,3 +282,54 @@ __all__ = [
     "candidates_from_geometry",
     "select_primary_pointer",
 ]
+
+
+def score_tip_orientation(
+    geometry: Mapping[str, Any] | None,
+    segmented: Mapping[str, Any] | None,
+    angle_degrees: float,
+    hub: tuple[float, float] | None = None,
+    tolerance_degrees: float = 35.0,
+) -> tuple[float, list[str]]:
+    """Score how strongly geometric evidence points to ``angle_degrees`` as the
+    reading (tip) direction.  This is evidence voting, NOT a mechanical 180-deg
+    flip: the caller combines it with a second independent signal (thin-line
+    extent) and flips only when both agree.
+
+    Evidence sources (all already computed by the pipeline):
+      - red needle tip direction from the hub (0.35)
+      - red component PCA axis base->tip (0.25)
+      - pointer mask pca angle (0.35)
+    """
+    circle = (geometry or {}).get("circle") or {}
+    if hub is None:
+        hub = (float(circle.get("center_x", 0.0)), float(circle.get("center_y", 0.0)))
+    evidence = 0.0
+    reasons: list[str] = []
+
+    def close(first: float, second: float) -> bool:
+        return abs((float(first) - float(second) + 180.0) % 360.0 - 180.0) <= tolerance_degrees
+
+    colored = (geometry or {}).get("colored_pointer_candidate") or {}
+    if colored:
+        tip = colored.get("tip")
+        if tip is not None:
+            direction = math.degrees(math.atan2(float(tip[0]) - hub[0], -(float(tip[1]) - hub[1]))) % 360.0
+            if close(direction, angle_degrees):
+                evidence += 0.35
+                reasons.append("red_tip_direction")
+        pca_base = colored.get("pca_base")
+        pca_tip = colored.get("pca_tip")
+        if pca_base is not None and pca_tip is not None:
+            direction = math.degrees(
+                math.atan2(float(pca_tip[0]) - float(pca_base[0]), -(float(pca_tip[1]) - float(pca_base[1])))
+            ) % 360.0
+            if close(direction, angle_degrees):
+                evidence += 0.25
+                reasons.append("red_pca_axis")
+    if segmented:
+        pca_angle = segmented.get("pca_angle")
+        if pca_angle is not None and close(float(pca_angle), angle_degrees):
+            evidence += 0.35
+            reasons.append("mask_pca_angle")
+    return evidence, reasons

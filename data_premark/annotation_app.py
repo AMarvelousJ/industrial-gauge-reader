@@ -284,11 +284,15 @@ class AnnotationStore:
         if minor is not None and minor <= 0:
             raise AnnotationValidationError("minor_division must be greater than zero")
 
-        if status in COMPLETED_STATUSES:
-            required_text = ("review_shape", "pointer_role", "unit")
-            required_numeric = ("pivot_x", "pivot_y", "pointer_angle_deg", "reading", "range_min", "range_max")
-            missing = [field for field in required_text if not cleaned[field]]
-            missing.extend(field for field in required_numeric if numeric[field] is None)
+        # The keypoint pose model only needs the axis (pivot) and the main-needle
+        # tip as its supervision labels. Reading / unit / range / minor_division
+        # belong to reading EVALuation, not to training the pose model, so they
+        # must not block marking a sample completed. For deferred (out-of-scope)
+        # samples even the two clicks are unnecessary, so they can be saved and
+        # skipped immediately.
+        if status in COMPLETED_STATUSES and cleaned["scope_status"] == "in_scope":
+            required_numeric = ("pivot_x", "pivot_y", "pointer_tip_x", "pointer_tip_y")
+            missing = [field for field in required_numeric if numeric[field] is None]
             if missing:
                 raise AnnotationValidationError(f"completed annotation is missing: {sorted(missing)}")
 

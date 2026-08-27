@@ -336,7 +336,11 @@ def estimate_dial_geometry(
 
         approximation = cv2.approxPolyDP(contour, 0.025 * perimeter, True)
         if len(approximation) == 4 and cv2.isContourConvex(approximation):
-            corners = _order_quad(approximation.reshape(4, 2))
+            try:
+                corners = _order_quad(approximation.reshape(4, 2))
+            except ValueError:
+                # Degenerate contour (duplicate corners) must not abort a batch.
+                continue
             rectangularity = area / max(float(cv2.contourArea(corners)), 1.0)
             center_distance = float(np.linalg.norm(corners.mean(axis=0) - image_center) / image_diagonal)
             fit_error = _quad_boundary_error(contour, corners)

@@ -1,7 +1,15 @@
-# NVIDIA/CUDA build tested for this Windows workstation.
+# NVIDIA/CUDA build tested for the Windows development workstation.
 --extra-index-url https://download.pytorch.org/whl/cu126
 
 torch==2.9.1+cu126
 torchvision==0.24.1+cu126
 ultralytics==8.4.106
+rapidocr==3.8.1
+onnxruntime==1.22.1
+opencv-python==5.0.0.93
+numpy==2.5.2
+pillow==12.3.0
+PyYAML==6.0.3
+openpyxl==3.1.5
+matplotlib==3.11.1
 pytest==8.4.2

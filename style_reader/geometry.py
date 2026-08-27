@@ -213,9 +213,24 @@ def tick_angle_candidates(gray: np.ndarray, circle: CircleEstimate) -> list[floa
     return [float(angle % 360) for angle in peaks[:80]]
 
 
-def _colored_pointer_candidate(image_bgr: np.ndarray, circle: CircleEstimate) -> dict | None:
+def _colored_pointer_candidate(
+    image_bgr: np.ndarray,
+    circle: CircleEstimate,
+    ocr_boxes: list | None = None,
+) -> dict | None:
     hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
     red = (((hsv[:, :, 0] <= 18) | (hsv[:, :, 0] >= 162)) & (hsv[:, :, 1] >= 45) & (hsv[:, :, 2] >= 40)).astype(np.uint8)
+    # Red dial text (CAUTION frames, logos, red scale zones) pollutes the red
+    # needle component and can flip the tip to a wrong end.  Mask the OCR boxes
+    # (identical to the grey pointer analysis) so the red evidence stays the
+    # actual needle.
+    # ocr_boxes are expected already in analysis coordinates (scaled by the
+    # caller, identical to the grey pointer analysis path).
+    for raw_box in ocr_boxes or []:
+        points = np.asarray(raw_box, dtype=np.float32)
+        left, top = np.floor(points.min(axis=0) - 4).astype(int)
+        right, bottom = np.ceil(points.max(axis=0) + 4).astype(int)
+        red[max(0, top): min(red.shape[0], bottom + 1), max(0, left): min(red.shape[1], right + 1)] = 0
     red = cv2.morphologyEx(red, cv2.MORPH_CLOSE, np.ones((2, 2), np.uint8))
     component_count, labels, stats, _ = cv2.connectedComponentsWithStats(red, 8)
     best_component = None
@@ -246,21 +261,43 @@ def _colored_pointer_candidate(image_bgr: np.ndarray, circle: CircleEstimate) ->
             + (1000.0 if detached_radial_marker and not attached else 0.0)
         )
         if best_component is None or score > best_component[0]:
-            best_component = (score, xs, ys, distances, detached_radial_marker and not attached, elongation)
+            best_component = (score, xs, ys, distances, detached_radial_marker and not attached, elongation, principal, line_distance)
     if best_component is None:
         return None
-    _, xs, ys, distances, detached_marker, elongation = best_component
+    _, xs, ys, distances, detached_marker, elongation, principal, line_distance = best_component
     far = int(distances.argmax())
     if detached_marker:
         tip = (int(round(float(np.mean(xs)))), int(round(float(np.mean(ys)))))
     else:
         tip = (int(xs[far]), int(ys[far]))
     coverage = min(1.0, float(distances.max()) / (circle.radius * 0.75))
+    base_index = int(distances.argmin())
+    # PCA endpoints of the red component: the reading end (tip) and the needle
+    # base.  For a thin needle with an off-centre hub the base endpoint is the
+    # best available hub estimate when the pointer mask is missing.
+    component_points = np.column_stack((xs, ys)).astype(np.float64)
+    component_mean = component_points.mean(axis=0)
+    projected = (component_points - component_mean) @ principal
+    lo_percentile = np.percentile(projected, 2)
+    hi_percentile = np.percentile(projected, 98)
+    pca_end_a = component_mean + principal * lo_percentile
+    pca_end_b = component_mean + principal * hi_percentile
+    distant_from_tip = int(np.argmax([np.linalg.norm(pca_end_a - np.array(tip)), np.linalg.norm(pca_end_b - np.array(tip))]))
+    pca_base = pca_end_b if distant_from_tip else pca_end_a
+    pca_tip = pca_end_a if distant_from_tip else pca_end_b
     return {
         "tip": tip,
+        "base_point": [int(xs[base_index]), int(ys[base_index])],
+        "pca_base": [round(float(value), 3) for value in pca_base],
+        "pca_tip": [round(float(value), 3) for value in pca_tip],
+        "radial_consistency": round(
+            float(line_distance) / max(circle.radius, 1e-6), 6
+        ),
         "angle_degrees": clockwise_angle_degrees((circle.center_x, circle.center_y), tip),
         "confidence": min(0.95, 0.45 + 0.4 * coverage),
         "pixel_count": int(len(xs)),
+        "extent_ratio": round(float(distances.max()) / max(circle.radius, 1e-6), 4),
+        "base_distance_ratio": round(float(distances.min()) / max(circle.radius, 1e-6), 4),
         "detached_scale_marker": bool(detached_marker),
         "elongation": round(float(elongation), 4),
     }
@@ -287,9 +324,10 @@ def analyze_pointer(
         masked_boxes += 1
     pointer_clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(pointer_gray)
     edges = cv2.Canny(cv2.GaussianBlur(pointer_clahe, (5, 5), 0), 45, 135)
+    scaled_ocr_boxes = [np.asarray(raw_box, dtype=np.float32) * scale for raw_box in ocr_boxes or []]
     candidates = line_candidates(edges, circle)
     radial = radial_darkness_scan(pointer_gray, circle)
-    colored = _colored_pointer_candidate(analysis, circle)
+    colored = _colored_pointer_candidate(analysis, circle, scaled_ocr_boxes)
 
     if colored is not None:
         angle = colored["angle_degrees"]

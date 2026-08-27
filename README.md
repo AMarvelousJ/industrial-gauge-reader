@@ -1,124 +1,131 @@
-# 冻结 YOLO + 仪表盘样式识别
+# 工业多形态指针式仪表自动读数系统
 
-## 当前验收结果
+这个仓库实现了一条完整的工业指针表读数链：输入图片或摄像头帧，先定位仪表，再分析表盘、主测量指针和刻度数字，最后输出数值、单位、置信度及可审计诊断信息。
 
-本次任务**不会训练或微调 YOLO**。用户提供的 `best.pt` 与工程内
-`runs/detect/meter_yolov8n_final/weights/best.pt` 的 SHA256 完全一致，
-只作为冻结的单类仪表检测器。其裁剪结果交给独立 ResNet18 分类器判断
-`M01`–`M10`、`M12` 样式。
+它不是“只训练一个 YOLO”的项目。YOLO 检测器只负责找到仪表；读数准确性主要来自后续的表盘几何归一化、多证据指针选择、OCR 刻度拟合、指针方向消歧和多级安全回退。
 
-一条命令完成分类器训练、冻结 YOLO 端到端评测、80% 门槛检查和回归测试：
+完整架构、每个程序的作用、为什么当前读数较准以及训练/评测流程，请先阅读：
 
-```powershell
-.\scripts\run_style_pipeline.ps1
+- [项目完整交接与准确读数原理](docs/PROJECT_HANDOFF.md)
+- [多形态仪表读数模块说明](style_reader/README.md)
+- [轴心/针尖关键点训练说明](pointer_keypoints/README.md)
+- [数据预标注与人工审核说明](data_premark/README.md)
+- [RK3576 部署检查表](docs/deployment_checklist.md)
+
+## 一分钟理解主流程
+
+```mermaid
+flowchart LR
+    Input["图片 / 摄像头帧"] -->|原始图像| Detector["冻结 YOLO 仪表检测"]
+    Detector -->|仪表 ROI| Dial["表盘几何归一化"]
+    Dial -->|校正后的表盘| Pointer["多证据指针分析"]
+    Dial -->|数字与单位区域| OCR["RapidOCR"]
+    Pointer -->|主指针角度| Mapping["稳健刻度映射"]
+    OCR -->|数字刻度锚点| Mapping
+    Mapping -->|读数候选| Unit["单位推断与一致性检查"]
+    Unit -->|结构化结果| Output["predictions.json / 实时叠加"]
 ```
 
-已存在 `outputs/style_classifier/best.pt` 时可快速复核：
+## 朋友克隆后如何运行
+
+### 1. 克隆代码和 Git LFS 模型
 
 ```powershell
-.\scripts\run_style_pipeline.ps1 -SkipTrain
+git lfs install
+git clone https://github.com/AMarvelousJ/industrial-gauge-reader.git
+cd industrial-gauge-reader
+git lfs pull
 ```
 
-当前固定 Markdown 清单按路径纠错后为 20 张唯一图片，端到端正确 19 张，
-准确率 95%，检测覆盖率 100%，四类宏平均召回 91.67%。这是固定清单上的
-封闭集结果；不是对未知来源新仪表的泛化准确率。详见
-`outputs/style_classifier/final_report.md` 和 `docs/data_audit.md`。
+`models/` 应包含三个主链资产：
 
-## 原有单类仪表检测工程
+- `meter_detector.pt`：冻结的单类仪表检测器；
+- `scale_segment.pt`：第三方 MIT 指针分割模型；
+- `pointer_keypoints.pt`：本项目训练的轴心/针尖模型，目前作为诊断证据。
 
-本工程训练一个统一的 `meter` 目标类别。M01–M12 表示不同仪表外观，
-但它们都作为“仪表”参与训练；模型负责定位并裁剪仪表，读数识别由下一个模型完成。
-
-## 1. 环境
-
-已创建隔离环境：
+可以先检查模型、哈希和 Python 依赖：
 
 ```powershell
-.\.venv\Scripts\Activate.ps1
-python --version
+python scripts\verify_setup.py
 ```
 
-如果 PowerShell 禁止激活脚本，可以始终直接使用：
+### 2. Windows 开发环境
+
+项目验证环境为 Python 3.12、Windows 和 NVIDIA CUDA 12.6：
 
 ```powershell
-.\.venv\Scripts\python.exe <命令>
-```
-
-安装固定版本的 CUDA PyTorch 与 Ultralytics：
-
-```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
-## 2. 准备数据
+如果没有 NVIDIA CUDA 环境，请根据自己的系统安装对应的 PyTorch，再安装 `requirements.txt` 中除 `torch/torchvision` 之外的依赖。RK3576 使用单独的 [requirements_rk3576.txt](requirements_rk3576.txt)。
+
+### 3. 摄像头或图片目录 Demo
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\prepare_dataset.py
+# USB 摄像头
+.\scripts\run_camera_demo.ps1 -Camera 0 -Width 1280 -Height 720
+
+# 对一个图片目录逐张回放
+.\scripts\run_camera_demo.ps1 -ImageDir D:\your_gauge_images
 ```
 
-该命令不会移动或修改 `all_set`。它会：
+Linux/RK3576 入口：
 
-- 检查图片、标签、类别与归一化框坐标；
-- 排除“有图片但无标签”的样本，避免被误当成负样本；
-- 按 M01–M12 样式分层，以固定随机种子生成 80%/10%/10% 划分；
-- 生成 `dataset/meter.yaml`、`dataset/splits/*.txt` 与审计报告。
+```bash
+bash install.sh
+bash run_demo.sh --image-dir /path/to/gauge_images
+```
 
-当前原始数据包含 1,040 张图片，其中 1,035 张有合法标签。M12 的
-`M12_P02_D_0001` 至 `M12_P02_D_0005` 共 5 张缺少标签，会被安全排除。
+### 4. 批量清单推理与评测
 
-## 3. 训练检测器
+原始比赛图片和人工审核数据不在 GitHub 仓库中。准备自己的数据目录和 JSON 清单：
 
-默认参数针对 RTX 3060 Laptop 6GB 显存：
+```json
+{
+  "schema_version": "1.0",
+  "images": [
+    {"sample_id": "demo-001", "path": "set_a/gauge_001.jpg"}
+  ]
+}
+```
+
+然后运行：
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\train_detector.py
+.\.venv\Scripts\python.exe -m style_reader.run_manifest `
+  --dataset-root D:\your_dataset `
+  --image-list D:\your_dataset\images.json `
+  --output-dir outputs\friend_run
 ```
 
-默认关闭图片缓存，训练过程不会在 `all_set` 的原始图片旁创建 `.npy`
-缓存文件。如确认允许写入缓存，可显式传入 `--cache disk`。
+输出包括：
 
-常用覆盖参数：
+- `results.json`：整批摘要和完整诊断；
+- `results.jsonl`：逐图诊断记录；
+- `predictions.json`：严格 1.0 预测接口；
+- `visualizations/`：逐图可视化。
 
-```powershell
-.\.venv\Scripts\python.exe scripts\train_detector.py `
-  --model yolov8n.pt `
-  --epochs 120 `
-  --imgsz 640 `
-  --batch 8 `
-  --device 0
-```
+有独立真值时再运行 `style_reader.evaluate_readings`，不要把文件名、目录名或算法预测反推成真值。
 
-显存不足时将 `--batch` 调为 4 或 2。最佳权重默认位于：
+## 当前验证状态
 
-```text
-runs/detect/meter_yolov8n/weights/best.pt
-```
+- 当前代码测试：129 个 pytest 全部通过。
+- 已保存的 20 张人工复核闭集产物：19/20，95%，覆盖率 100%；严格 18 张口径为 17/18。
+- 这只是小型闭集回归，不代表比赛要求的陌生仪表泛化率或总体 99%。
+- 当前闭集剩余错误是方形电流表 RG-020 的刻度映射。
+- 摄像头链已跑通，但 RapidOCR 多 pass 是主要速度瓶颈；RK3576 仍需 RKNN/NPU 和 OCR 优化。
 
-中断后恢复训练：
+## 数据和模型边界
 
-```powershell
-.\.venv\Scripts\python.exe scripts\train_detector.py `
-  --model runs\detect\meter_yolov8n\weights\last.pt `
-  --resume
-```
+- `all_set/` 是用户原始数据，仓库忽略且禁止修改。
+- `runs/`、`outputs/`、`dataset/` 是本地生成产物，不上传。
+- `models/meter_detector.pt` 是冻结检测器，推理时不得训练或覆盖。
+- 关键点模型当前只提供诊断和一致性证据，不应在精度不足时强行接管读数。
+- 任何准确率都必须同时说明真值来源、样本数、评测口径、覆盖率和是否闭集。
 
-## 4. 标框并裁剪给读数模型
+## 第三方说明
 
-```powershell
-.\.venv\Scripts\python.exe scripts\predict_crop.py `
-  --weights runs\detect\meter_yolov8n\weights\best.pt `
-  --source path\to\images
-```
-
-输出位于 `outputs/meter_detection/`：
-
-- `annotated/`：画出检测框的图片；
-- `crops/`：默认额外保留 5% 边缘的仪表 ROI；
-- `detections.jsonl`：置信度、原始框、裁剪框和裁剪文件路径，可直接传给下游。
-
-## 关于“多样式”和“多类别”
-
-当前目标是找出所有仪表并交给同一个后续读数阶段，因此采用单类检测最合适。
-多样式能力来自训练集中覆盖不同外观、角度、背景和光照，而不取决于类别数量。
-只有当后续读数算法需要根据 M01、M02 等样式选择不同量程或不同模型时，
-才应把样式改成多个检测类别或增加独立的样式分类器。
+`third_party/Gauge-Pointer-Reading/` 及其 `scale_segment.pt` 来自 MIT 许可项目，原始许可证保留在 [third_party/Gauge-Pointer-Reading/LICENSE](third_party/Gauge-Pointer-Reading/LICENSE)。

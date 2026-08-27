@@ -10,6 +10,8 @@ dataset/
 runs/
 outputs/
 *.pt
+!models/
+!models/*.pt
 third_party/**/.git.vendor-backup/
 third_party/Gauge-Pointer-Reading/data_valid/
 
@@ -20,3 +22,8 @@ style_classifier/outputs/
 
 # Ultralytics local settings
 Ultralytics/
+
+# Local handoff notes, temporary packaging trees, and editor backups
+project_context.md
+tiaozhanbei/
+*.bak_*
